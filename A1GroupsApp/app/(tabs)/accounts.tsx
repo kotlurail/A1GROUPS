@@ -1,0 +1,798 @@
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import {
+  View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
+  StyleSheet, Platform, Alert, Dimensions, SafeAreaView, KeyboardAvoidingView, StatusBar,
+} from 'react-native';
+import { useColorScheme } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { transactionsApi } from '../../lib/api';
+
+const W = Dimensions.get('window').width;
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+const TODAY = todayStr();
+
+function last6Months(): { ym: string; label: string }[] {
+  const ML = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const now = new Date();
+  return Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    return { ym: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: ML[d.getMonth()] };
+  });
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+type TxType   = 'income' | 'expense';
+type TxStatus = 'completed' | 'pending' | 'cancelled';
+type Period   = 'Daily' | 'Weekly' | 'Monthly' | 'Yearly' | 'All Time';
+type TxFilter = 'All' | 'Income' | 'Expense';
+type SortKey  = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'venue-az' | 'category-az' | 'type-income' | 'type-expense' | 'status';
+
+interface Transaction {
+  id: string;
+  type: TxType;
+  venue: string;
+  category: string;
+  amount: number;
+  paymentMethod: string;
+  date: string;
+  comments: string;
+  status: TxStatus;
+}
+
+interface TxForm {
+  type: TxType; venue: string; category: string; amount: string;
+  paymentMethod: string; date: string; comments: string; status: TxStatus;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const VENUES          = ['A1 Function Hall', 'A1 Grand', 'A1 Events & Decors'];
+const INCOME_TYPES    = ['Hall Booking', 'Decoration Booking', 'Advance Payment', 'Full Payment', 'Catering Income', 'Other Income'];
+const EXPENSE_TYPES   = ['Monthly Rent', 'Current Bill', 'Salaries', 'Daily Expenses', 'Investments', 'Maintenance', 'Decoration Expenses', 'Marketing', 'Fuel Charges', 'Other Expenses'];
+const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Card'];
+const PERIODS: Period[]   = ['Daily', 'Weekly', 'Monthly', 'Yearly', 'All Time'];
+const STATUS_OPTIONS  = ['completed', 'pending', 'cancelled'];
+const SORT_OPTIONS: { key: SortKey; label: string; icon: string; group: string }[] = [
+  { key: 'date-desc',      label: 'Newest First',     icon: '🕐', group: 'Date'     },
+  { key: 'date-asc',       label: 'Oldest First',     icon: '🕰', group: 'Date'     },
+  { key: 'amount-desc',    label: 'Highest Amount',   icon: '💰', group: 'Amount'   },
+  { key: 'amount-asc',     label: 'Lowest Amount',    icon: '💸', group: 'Amount'   },
+  { key: 'venue-az',       label: 'Venue (A–Z)',       icon: '🏛', group: 'Venue'    },
+  { key: 'category-az',    label: 'Category (A–Z)',    icon: '🗂', group: 'Category' },
+  { key: 'type-income',    label: 'Income First',     icon: '📈', group: 'Type'     },
+  { key: 'type-expense',   label: 'Expense First',    icon: '📉', group: 'Type'     },
+  { key: 'status',         label: 'By Status',        icon: '🔖', group: 'Status'   },
+];
+
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const fmt = (n: number) => '₹' + n.toLocaleString('en-IN');
+
+function parseDate(d: string): Date {
+  const [y, m, day] = d.split('-').map(Number);
+  return new Date(y, m - 1, day);
+}
+
+function isInPeriod(date: string, period: Period, ref: string): boolean {
+  if (period === 'All Time') return true;
+  const d = parseDate(date), r = parseDate(ref);
+  if (period === 'Daily') return d.toDateString() === r.toDateString();
+  if (period === 'Weekly') {
+    const diff = (r.getTime() - d.getTime()) / 86400000;
+    return diff >= 0 && diff < 7;
+  }
+  if (period === 'Monthly') return d.getFullYear() === r.getFullYear() && d.getMonth() === r.getMonth();
+  if (period === 'Yearly')  return d.getFullYear() === r.getFullYear();
+  return true;
+}
+
+const emptyForm = (): TxForm => ({
+  type: 'income', venue: VENUES[0], category: INCOME_TYPES[0],
+  amount: '', paymentMethod: PAYMENT_METHODS[0], date: todayStr(), comments: '', status: 'completed',
+});
+
+// ─── Theme ────────────────────────────────────────────────────────────────────
+const light = { bg: '#f5f6fa', card: '#ffffff', text: '#1a1a2e', sub: '#7f8c9a', border: '#e0e4ef' };
+const dark  = { bg: '#0f0f1a', card: '#1a1a2e', text: '#eef0f8', sub: '#8892a4', border: '#2a2a3e' };
+
+// ─── SelectField ──────────────────────────────────────────────────────────────
+function SelectField({ label, value, options, onChange, isDark }: {
+  label?: string; value: string; options: string[]; onChange: (v: string) => void; isDark: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const t = isDark ? dark : light;
+  const fil = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
+  return (
+    <>
+      {label && <Text style={[s.fieldLabel, { color: t.sub }]}>{label}</Text>}
+      <TouchableOpacity
+        style={[s.selectTrigger, { backgroundColor: t.card, borderColor: t.border }]}
+        onPress={() => { setSearch(''); setOpen(true); }}
+      >
+        <Text style={{ color: value ? t.text : t.sub, flex: 1 }}>{value || 'Select...'}</Text>
+        <Text style={{ color: t.sub }}>▾</Text>
+      </TouchableOpacity>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
+          <View style={[s.selectPanel, { backgroundColor: t.card, borderColor: t.border }]} onStartShouldSetResponder={() => true}>
+            <TextInput
+              style={[s.selectSearch, { backgroundColor: t.bg, color: t.text, borderColor: t.border }]}
+              placeholder="Search..." placeholderTextColor={t.sub}
+              value={search} onChangeText={setSearch} autoFocus
+            />
+            <ScrollView style={{ maxHeight: 220 }}>
+              {fil.map(o => (
+                <TouchableOpacity key={o} style={s.selectOpt} onPress={() => { onChange(o); setOpen(false); }}>
+                  <Text style={{ color: value === o ? '#6C63FF' : t.text, fontWeight: value === o ? '700' : '400' }}>{o}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </>
+  );
+}
+
+// ─── DateField ────────────────────────────────────────────────────────────────
+function DateField({ label, value, onChange, isDark }: { label: string; value: string; onChange: (v: string) => void; isDark: boolean }) {
+  const t = isDark ? dark : light;
+  if (Platform.OS === 'web') {
+    return (
+      <View style={{ marginBottom: 12 }}>
+        <Text style={[s.fieldLabel, { color: t.sub }]}>{label}</Text>
+        <input type="date" value={value} onChange={e => onChange((e.target as HTMLInputElement).value)}
+          style={{ padding: 10, borderRadius: 8, border: `1px solid ${t.border}`, backgroundColor: t.card, color: t.text, width: '100%', fontSize: 14 }} />
+      </View>
+    );
+  }
+  return (
+    <View style={{ marginBottom: 12 }}>
+      <Text style={[s.fieldLabel, { color: t.sub }]}>{label}</Text>
+      <TextInput
+        style={[s.selectTrigger, { backgroundColor: t.card, borderColor: t.border, color: t.text }]}
+        value={value} onChangeText={onChange} placeholder="YYYY-MM-DD" placeholderTextColor={t.sub}
+      />
+    </View>
+  );
+}
+
+// ─── Sparkline ────────────────────────────────────────────────────────────────
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  const max = Math.max(...data, 1);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 26, gap: 2, marginTop: 4 }}>
+      {data.map((v, i) => (
+        <View key={i} style={{ width: 5, height: Math.max(2, (v / max) * 26), backgroundColor: color, borderRadius: 2, opacity: 0.5 + 0.5 * (i / data.length) }} />
+      ))}
+    </View>
+  );
+}
+
+// ─── SummaryCard ──────────────────────────────────────────────────────────────
+function SummaryCard({ title, amount, trend, trendUp, color, spark, isDark }: {
+  title: string; amount: number; trend: string; trendUp: boolean; color: string; spark: number[]; isDark: boolean;
+}) {
+  const t = isDark ? dark : light;
+  const icons: Record<string, string> = {
+    'Total Income': '📈', 'Total Expense': '📉', 'Balance': '💰',
+    'Monthly Revenue': '📅', 'Yearly Revenue': '🗓️', 'Pending Payments': '⏳',
+  };
+  return (
+    <View style={[s.summaryCard, { backgroundColor: t.card, borderColor: t.border }]}>
+      <View style={[s.summaryIcon, { backgroundColor: color + '20' }]}>
+        <Text style={{ fontSize: 16 }}>{icons[title] ?? '💳'}</Text>
+      </View>
+      <Text style={[s.summaryTitle, { color: t.sub }]}>{title}</Text>
+      <Text style={[s.summaryAmt, { color }]}>{fmt(amount)}</Text>
+      <Text style={{ color: trendUp ? '#27ae60' : '#e74c3c', fontSize: 11, marginTop: 1 }}>
+        {trendUp ? '▲' : '▼'} {trend}
+      </Text>
+      <Sparkline data={spark} color={color} />
+    </View>
+  );
+}
+
+// ─── BarChart ─────────────────────────────────────────────────────────────────
+function BarChart({ data, labels, colors, title, isDark }: {
+  data: number[][]; labels: string[]; colors: string[]; title: string; isDark: boolean;
+}) {
+  const t = isDark ? dark : light;
+  const max = Math.max(...data.flat(), 1);
+  const H = 110;
+  return (
+    <View style={[s.chartCard, { backgroundColor: t.card, borderColor: t.border }]}>
+      <Text style={[s.chartTitle, { color: t.text }]}>{title}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: H + 20 }}>
+        {labels.map((lbl, li) => (
+          <View key={li} style={{ flex: 1, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: H }}>
+              {data.map((ser, si) => (
+                <View key={si} style={{ flex: 1, height: Math.max(2, (ser[li] / max) * H), backgroundColor: colors[si], borderRadius: 3, opacity: 0.85 }} />
+              ))}
+            </View>
+            <Text style={{ color: t.sub, fontSize: 9, marginTop: 2 }} numberOfLines={1}>{lbl}</Text>
+          </View>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 16, marginTop: 6 }}>
+        {colors.map((c, i) => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: c }} />
+            <Text style={{ color: t.sub, fontSize: 11 }}>{i === 0 ? 'Income' : 'Expense'}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ─── HBar ─────────────────────────────────────────────────────────────────────
+function HBar({ label, value, max, color, isDark }: { label: string; value: number; max: number; color: string; isDark: boolean }) {
+  const t = isDark ? dark : light;
+  const pct = max > 0 ? (value / max) * 100 : 0;
+  return (
+    <View style={{ marginBottom: 10 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
+        <Text style={{ color: t.text, fontSize: 12 }} numberOfLines={1}>{label}</Text>
+        <Text style={{ color, fontSize: 12, fontWeight: '600' }}>{fmt(value)}</Text>
+      </View>
+      <View style={{ height: 6, backgroundColor: t.border, borderRadius: 3 }}>
+        <View style={{ height: 6, width: `${pct}%` as any, backgroundColor: color, borderRadius: 3 }} />
+      </View>
+    </View>
+  );
+}
+
+// ─── TxRow ────────────────────────────────────────────────────────────────────
+function TxRow({ tx, onView, onEdit, onDelete, onPrint, isDark }: {
+  tx: Transaction; onView(): void; onEdit(): void; onDelete(): void; onPrint(): void; isDark: boolean;
+}) {
+  const t = isDark ? dark : light;
+  const inc = tx.type === 'income';
+  const sc: Record<TxStatus, string> = { completed: '#27ae60', pending: '#f39c12', cancelled: '#e74c3c' };
+  return (
+    <View style={[s.txRow, { backgroundColor: t.card, borderColor: t.border }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <View style={[s.txBadge, { backgroundColor: inc ? '#27ae6020' : '#e74c3c20' }]}>
+          <Text style={{ color: inc ? '#27ae60' : '#e74c3c', fontSize: 10, fontWeight: '700' }}>{inc ? '+INC' : '-EXP'}</Text>
+        </View>
+        <Text style={[s.txCat, { color: t.text }]}>{tx.category}</Text>
+        <View style={{ flex: 1 }} />
+        <Text style={{ color: inc ? '#27ae60' : '#e74c3c', fontSize: 14, fontWeight: '800' }}>
+          {inc ? '+' : '-'}{fmt(tx.amount)}
+        </Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 2 }}>
+        <Text style={{ color: t.sub, fontSize: 11 }}>{tx.venue}</Text>
+        <Text style={{ color: t.border }}> • </Text>
+        <Text style={{ color: t.sub, fontSize: 11 }}>{tx.date}</Text>
+        <Text style={{ color: t.border }}> • </Text>
+        <Text style={{ color: t.sub, fontSize: 11 }}>{tx.paymentMethod}</Text>
+        <View style={{ flex: 1 }} />
+        <View style={[s.txStatus, { backgroundColor: sc[tx.status] + '20' }]}>
+          <Text style={{ color: sc[tx.status], fontSize: 10, fontWeight: '600' }}>
+            {tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
+          </Text>
+        </View>
+      </View>
+      {!!tx.comments && <Text style={{ color: t.sub, fontSize: 11, marginBottom: 6 }} numberOfLines={1}>{tx.comments}</Text>}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {(['👁', '✏️', '🗑', '🖨'] as const).map((icon, i) => {
+          const fns = [onView, onEdit, onDelete, onPrint];
+          const clrs = ['#3498db', '#f39c12', '#e74c3c', '#8e44ad'];
+          return (
+            <TouchableOpacity key={i} style={[s.txBtn, { borderColor: clrs[i] + '50' }]} onPress={fns[i]}>
+              <Text style={{ color: clrs[i], fontSize: 13 }}>{icon}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+// ─── TxModal ──────────────────────────────────────────────────────────────────
+function TxModal({ visible, form, setForm, onSave, onClose, isDark, isEdit }: {
+  visible: boolean; form: TxForm; setForm(f: TxForm): void; onSave(): void; onClose(): void; isDark: boolean; isEdit: boolean;
+}) {
+  const t = isDark ? dark : light;
+  const cats = form.type === 'income' ? INCOME_TYPES : EXPENSE_TYPES;
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={s.overlay}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%' }}>
+          <View style={[s.sheet, { backgroundColor: t.bg }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={[s.sheetTitle, { color: t.text }]}>{isEdit ? 'Edit Transaction' : 'Add Transaction'}</Text>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity onPress={onClose}><Text style={{ color: t.sub, fontSize: 22 }}>✕</Text></TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={[s.fieldLabel, { color: t.sub }]}>Type</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                {(['income', 'expense'] as TxType[]).map(tp => {
+                  const active = form.type === tp;
+                  const col = tp === 'income' ? '#27ae60' : '#e74c3c';
+                  return (
+                    <TouchableOpacity key={tp} style={[s.typeBtn, { backgroundColor: active ? col : t.card, borderColor: col }]}
+                      onPress={() => setForm({ ...form, type: tp, category: tp === 'income' ? INCOME_TYPES[0] : EXPENSE_TYPES[0] })}>
+                      <Text style={{ color: active ? '#fff' : col, fontWeight: '700' }}>{tp === 'income' ? '📈 Income' : '📉 Expense'}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <SelectField label="Venue" value={form.venue} options={VENUES} onChange={v => setForm({ ...form, venue: v })} isDark={isDark} />
+              <View style={{ height: 12 }} />
+              <SelectField label="Category" value={form.category} options={cats} onChange={v => setForm({ ...form, category: v })} isDark={isDark} />
+              <View style={{ height: 12 }} />
+              <Text style={[s.fieldLabel, { color: t.sub }]}>Amount (₹)</Text>
+              <TextInput
+                style={[s.input, { backgroundColor: t.card, borderColor: t.border, color: t.text }]}
+                value={form.amount} onChangeText={v => setForm({ ...form, amount: v })}
+                keyboardType="numeric" placeholder="0" placeholderTextColor={t.sub}
+              />
+              <SelectField label="Payment Method" value={form.paymentMethod} options={PAYMENT_METHODS} onChange={v => setForm({ ...form, paymentMethod: v })} isDark={isDark} />
+              <View style={{ height: 12 }} />
+              <DateField label="Date" value={form.date} onChange={v => setForm({ ...form, date: v })} isDark={isDark} />
+              <SelectField label="Status" value={form.status} options={STATUS_OPTIONS} onChange={v => setForm({ ...form, status: v as TxStatus })} isDark={isDark} />
+              <View style={{ height: 12 }} />
+              <Text style={[s.fieldLabel, { color: t.sub }]}>Comments</Text>
+              <TextInput
+                style={[s.input, { backgroundColor: t.card, borderColor: t.border, color: t.text, height: 70, textAlignVertical: 'top' }]}
+                value={form.comments} onChangeText={v => setForm({ ...form, comments: v })}
+                multiline placeholder="Optional notes..." placeholderTextColor={t.sub}
+              />
+              <TouchableOpacity style={[s.saveBtn, { backgroundColor: form.type === 'income' ? '#27ae60' : '#e74c3c' }]} onPress={onSave}>
+                <Text style={s.saveTxt}>{isEdit ? 'Update Transaction' : 'Add Transaction'}</Text>
+              </TouchableOpacity>
+              <View style={{ height: 24 }} />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── DetailModal ──────────────────────────────────────────────────────────────
+function DetailModal({ tx, onClose, onEdit, onDelete, isDark }: {
+  tx: Transaction | null; onClose(): void; onEdit(): void; onDelete(): void; isDark: boolean;
+}) {
+  const t = isDark ? dark : light;
+  if (!tx) return null;
+  const inc = tx.type === 'income';
+  const sc: Record<TxStatus, string> = { completed: '#27ae60', pending: '#f39c12', cancelled: '#e74c3c' };
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <View style={s.overlay}>
+        <View style={[s.sheet, { backgroundColor: t.bg }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={[s.sheetTitle, { color: t.text }]}>Transaction Details</Text>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity onPress={onClose}><Text style={{ color: t.sub, fontSize: 22 }}>✕</Text></TouchableOpacity>
+          </View>
+          <View style={[s.detailAmt, { backgroundColor: inc ? '#27ae6015' : '#e74c3c15' }]}>
+            <Text style={{ color: t.sub, fontSize: 12 }}>{tx.type.toUpperCase()}</Text>
+            <Text style={{ color: inc ? '#27ae60' : '#e74c3c', fontSize: 28, fontWeight: '800', marginVertical: 4 }}>{fmt(tx.amount)}</Text>
+            <View style={[s.txStatus, { backgroundColor: sc[tx.status] + '20', alignSelf: 'center' }]}>
+              <Text style={{ color: sc[tx.status], fontWeight: '600' }}>{tx.status}</Text>
+            </View>
+          </View>
+          {([['Category', tx.category], ['Venue', tx.venue], ['Date', tx.date], ['Payment', tx.paymentMethod], ['Comments', tx.comments || '—']] as [string,string][]).map(([k, v]) => (
+            <View key={k} style={[s.detailRow, { borderBottomColor: t.border }]}>
+              <Text style={{ color: t.sub, fontSize: 13, flex: 1 }}>{k}</Text>
+              <Text style={{ color: t.text, fontSize: 13, flex: 2, textAlign: 'right' }}>{v}</Text>
+            </View>
+          ))}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+            <TouchableOpacity style={[s.detailBtn, { backgroundColor: '#f39c12' }]} onPress={onEdit}>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>✏️ Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.detailBtn, { backgroundColor: '#e74c3c' }]} onPress={onDelete}>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>🗑 Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── SortModal ────────────────────────────────────────────────────────────────
+function SortModal({ visible, current, onSelect, onClose, isDark }: {
+  visible: boolean; current: SortKey; onSelect(k: SortKey): void; onClose(): void; isDark: boolean;
+}) {
+  const t = isDark ? dark : light;
+  const groups = [...new Set(SORT_OPTIONS.map(o => o.group))];
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={onClose}>
+        <View style={[s.sheet, { backgroundColor: t.bg }]} onStartShouldSetResponder={() => true}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={[s.sheetTitle, { color: t.text }]}>Sort By</Text>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity onPress={onClose}><Text style={{ color: t.sub, fontSize: 22 }}>✕</Text></TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {groups.map(grp => (
+              <View key={grp} style={{ marginBottom: 12 }}>
+                <Text style={{ color: t.sub, fontSize: 11, fontWeight: '700', marginBottom: 6, letterSpacing: 0.8 }}>{grp.toUpperCase()}</Text>
+                {SORT_OPTIONS.filter(o => o.group === grp).map(opt => {
+                  const active = current === opt.key;
+                  return (
+                    <TouchableOpacity
+                      key={opt.key}
+                      style={[s.sortRow, { borderColor: active ? '#6C63FF40' : t.border, backgroundColor: active ? '#6C63FF12' : 'transparent' }]}
+                      onPress={() => { onSelect(opt.key); onClose(); }}
+                    >
+                      <Text style={{ fontSize: 17, marginRight: 12 }}>{opt.icon}</Text>
+                      <Text style={{ color: active ? '#6C63FF' : t.text, fontWeight: active ? '700' : '400', fontSize: 14, flex: 1 }}>{opt.label}</Text>
+                      {active && <Text style={{ color: '#6C63FF', fontSize: 16 }}>✓</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
+            <View style={{ height: 16 }} />
+          </ScrollView>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+export default function AccountsScreen() {
+  const scheme = useColorScheme();
+  const [isDark, setIsDark] = useState(scheme === 'dark');
+  const t = isDark ? dark : light;
+
+  const [txs, setTxs]           = useState<Transaction[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [period, setPeriod]     = useState<Period>('Monthly');
+  const [venue, setVenue]       = useState('All Venues');
+  const [typeF, setTypeF]       = useState<TxFilter>('All');
+  const [search, setSearch]     = useState('');
+  const [showAdd, setShowAdd]   = useState(false);
+  const [editTx, setEditTx]     = useState<Transaction | null>(null);
+  const [viewTx, setViewTx]     = useState<Transaction | null>(null);
+  const [form, setForm]         = useState<TxForm>(emptyForm());
+  const [isEdit, setIsEdit]     = useState(false);
+  const [sortKey, setSortKey]   = useState<SortKey>('date-desc');
+  const [showSort, setShowSort] = useState(false);
+
+  const loadTxs = useCallback(async () => {
+    try {
+      const data = await transactionsApi.getAll();
+      setTxs(data.map(d => ({ ...d, id: d._id })));
+    } catch (e: any) {
+      Alert.alert('Error', 'Could not load transactions: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadTxs(); }, [loadTxs]);
+
+  const filtered = useMemo(() => txs.filter(tx => {
+    const pOk = isInPeriod(tx.date, period, TODAY);
+    const vOk = venue === 'All Venues' || tx.venue === venue;
+    const tOk = typeF === 'All' || (typeF === 'Income' ? tx.type === 'income' : tx.type === 'expense');
+    const sOk = !search || [tx.category, tx.venue, tx.comments].some(f => f.toLowerCase().includes(search.toLowerCase()));
+    return pOk && vOk && tOk && sOk;
+  }), [txs, period, venue, typeF, search]);
+
+  const totalIncome  = filtered.filter(x => x.type === 'income').reduce((a, x) => a + x.amount, 0);
+  const totalExpense = filtered.filter(x => x.type === 'expense').reduce((a, x) => a + x.amount, 0);
+  const balance      = totalIncome - totalExpense;
+  const pendingAmt   = txs.filter(x => x.status === 'pending').reduce((a, x) => a + x.amount, 0);
+  const monthlyInc   = txs.filter(x => isInPeriod(x.date, 'Monthly', TODAY) && x.type === 'income').reduce((a, x) => a + x.amount, 0);
+  const yearlyInc    = txs.filter(x => isInPeriod(x.date, 'Yearly', TODAY) && x.type === 'income').reduce((a, x) => a + x.amount, 0);
+
+  const MONTHS6  = last6Months();
+  const YMS      = MONTHS6.map(m => m.ym);
+  const LBLS     = MONTHS6.map(m => m.label);
+  const mAmt = (ym: string, tp: TxType) => txs.filter(x => x.date.startsWith(ym) && x.type === tp).reduce((a, x) => a + x.amount, 0);
+  const incSpark = YMS.map(ym => mAmt(ym, 'income'));
+  const expSpark = YMS.map(ym => mAmt(ym, 'expense'));
+  const ML_FULL  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const _now     = new Date();
+  const monthTrend = ML_FULL[_now.getMonth()] + ' ' + _now.getFullYear();
+  const yearTrend  = 'FY ' + _now.getFullYear();
+
+  const venueStats = VENUES.map(v => ({
+    v,
+    inc: filtered.filter(x => x.venue === v && x.type === 'income').reduce((a, x) => a + x.amount, 0),
+    exp: filtered.filter(x => x.venue === v && x.type === 'expense').reduce((a, x) => a + x.amount, 0),
+  }));
+  const maxVenue = Math.max(...venueStats.map(v => v.inc), 1);
+
+  const expCats = [...new Set(filtered.filter(x => x.type === 'expense').map(x => x.category))]
+    .map(c => ({ c, a: filtered.filter(x => x.category === c && x.type === 'expense').reduce((a, x) => a + x.amount, 0) }))
+    .sort((a, b) => b.a - a.a).slice(0, 6);
+  const maxExpCat = Math.max(...expCats.map(c => c.a), 1);
+
+  const incCats = [...new Set(filtered.filter(x => x.type === 'income').map(x => x.category))]
+    .map(c => ({ c, a: filtered.filter(x => x.category === c && x.type === 'income').reduce((a, x) => a + x.amount, 0) }))
+    .sort((a, b) => b.a - a.a).slice(0, 6);
+  const maxIncCat = Math.max(...incCats.map(c => c.a), 1);
+
+  function openAdd() { setForm(emptyForm()); setIsEdit(false); setEditTx(null); setShowAdd(true); }
+  function openEdit(tx: Transaction) { setForm({ ...tx, amount: String(tx.amount) }); setIsEdit(true); setEditTx(tx); setShowAdd(true); }
+
+  async function handleSave() {
+    const amt = parseFloat(form.amount);
+    if (!form.venue || !form.category || isNaN(amt) || amt <= 0 || !form.date) {
+      if (Platform.OS === 'web') window.alert('Please fill all required fields.');
+      else Alert.alert('Validation', 'Please fill all required fields.');
+      return;
+    }
+    try {
+      const payload = { ...form, amount: amt };
+      if (isEdit && editTx) {
+        const updated = await transactionsApi.update(editTx.id, payload);
+        setTxs(prev => prev.map(x => x.id === editTx.id ? { ...updated, id: updated._id } : x));
+      } else {
+        const created = await transactionsApi.create(payload);
+        setTxs(prev => [{ ...created, id: created._id }, ...prev]);
+      }
+      setShowAdd(false); setEditTx(null);
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
+  }
+
+  function handleDelete(id: string) {
+    const del = async () => {
+      try {
+        await transactionsApi.remove(id);
+        setTxs(prev => prev.filter(x => x.id !== id));
+      } catch (e: any) {
+        Alert.alert('Error', e.message);
+      }
+    };
+    if (Platform.OS === 'web') { if (window.confirm('Delete this transaction?')) del(); }
+    else Alert.alert('Delete', 'Delete this transaction?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: del }]);
+  }
+
+  async function handlePrint(tx: Transaction) {
+    const html = `<html><body style="font-family:sans-serif;padding:24px;max-width:480px">
+      <h2 style="color:#6C63FF">Transaction Receipt</h2>
+      <hr/>
+      <p><b>Type:</b> ${tx.type.toUpperCase()}</p>
+      <p><b>Category:</b> ${tx.category}</p>
+      <p><b>Venue:</b> ${tx.venue}</p>
+      <p><b>Amount:</b> ₹${tx.amount.toLocaleString('en-IN')}</p>
+      <p><b>Payment Method:</b> ${tx.paymentMethod}</p>
+      <p><b>Date:</b> ${tx.date}</p>
+      <p><b>Status:</b> ${tx.status}</p>
+      ${tx.comments ? `<p><b>Comments:</b> ${tx.comments}</p>` : ''}
+      <hr/><p style="color:#999;font-size:12px">Generated by A1 Groups App</p>
+    </body></html>`;
+    try { const { uri } = await Print.printToFileAsync({ html }); await Sharing.shareAsync(uri); } catch {}
+  }
+
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    switch (sortKey) {
+      case 'date-desc':    return arr.sort((a, b) => b.date.localeCompare(a.date));
+      case 'date-asc':     return arr.sort((a, b) => a.date.localeCompare(b.date));
+      case 'amount-desc':  return arr.sort((a, b) => b.amount - a.amount);
+      case 'amount-asc':   return arr.sort((a, b) => a.amount - b.amount);
+      case 'venue-az':     return arr.sort((a, b) => a.venue.localeCompare(b.venue));
+      case 'category-az':  return arr.sort((a, b) => a.category.localeCompare(b.category));
+      case 'type-income':  return arr.sort((a, b) => (a.type === 'income' ? -1 : 1) - (b.type === 'income' ? -1 : 1));
+      case 'type-expense': return arr.sort((a, b) => (a.type === 'expense' ? -1 : 1) - (b.type === 'expense' ? -1 : 1));
+      case 'status':       return arr.sort((a, b) => a.status.localeCompare(b.status));
+      default:             return arr.sort((a, b) => b.date.localeCompare(a.date));
+    }
+  }, [filtered, sortKey]);
+
+  if (loading) return (
+    <SafeAreaView style={[s.safe, { backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }]}>
+      <Text style={{ color: t.sub, fontSize: 15 }}>Loading transactions...</Text>
+    </SafeAreaView>
+  );
+
+  return (
+    <SafeAreaView style={[s.safe, { backgroundColor: t.bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+
+        {/* Header */}
+        <View style={[s.header, { backgroundColor: t.card, borderBottomColor: t.border }]}>
+          <View>
+            <Text style={[s.headerTitle, { color: t.text }]}>Accounts</Text>
+            <Text style={{ color: t.sub, fontSize: 12 }}>Financial Management</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity style={[s.iconBtn, { backgroundColor: isDark ? '#ffffff15' : '#6C63FF15' }]} onPress={() => setIsDark(!isDark)}>
+              <Text>{isDark ? '☀️' : '🌙'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.addBtn, { backgroundColor: '#6C63FF' }]} onPress={openAdd}>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>+ Add</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Period Chips */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginVertical: 12 }}>
+          {PERIODS.map(p => (
+            <TouchableOpacity key={p} style={[s.chip, { backgroundColor: period === p ? '#6C63FF' : t.card, borderColor: period === p ? '#6C63FF' : t.border }]}
+              onPress={() => setPeriod(p)}>
+              <Text style={{ color: period === p ? '#fff' : t.text, fontWeight: '600', fontSize: 13 }}>{p}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Venue Filter */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+          {['All Venues', ...VENUES].map(v => (
+            <TouchableOpacity key={v} style={[s.venueChip, { backgroundColor: venue === v ? '#6C63FF20' : 'transparent', borderColor: venue === v ? '#6C63FF' : t.border }]}
+              onPress={() => setVenue(v)}>
+              <Text style={{ color: venue === v ? '#6C63FF' : t.sub, fontSize: 12 }}>{v}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Summary Cards */}
+        <View style={s.grid}>
+          <SummaryCard title="Total Income"      amount={totalIncome}  trend="This period"   trendUp color="#27ae60" spark={incSpark} isDark={isDark} />
+          <SummaryCard title="Total Expense"     amount={totalExpense} trend="This period"   trendUp={false} color="#e74c3c" spark={expSpark} isDark={isDark} />
+          <SummaryCard title="Balance"           amount={Math.abs(balance)} trend={balance >= 0 ? 'Surplus' : 'Deficit'} trendUp={balance >= 0} color="#6C63FF" spark={incSpark.map((v,i) => Math.max(0, v - expSpark[i]))} isDark={isDark} />
+          <SummaryCard title="Monthly Revenue"   amount={monthlyInc}   trend={monthTrend}    trendUp color="#3498db" spark={incSpark} isDark={isDark} />
+          <SummaryCard title="Yearly Revenue"    amount={yearlyInc}    trend={yearTrend}     trendUp color="#f39c12" spark={incSpark} isDark={isDark} />
+          <SummaryCard title="Pending Payments"  amount={pendingAmt}   trend="All time"      trendUp={false} color="#e67e22" spark={[0,0,0,0,pendingAmt/2000,pendingAmt/1000]} isDark={isDark} />
+        </View>
+
+        {/* Type Filter */}
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginVertical: 10, gap: 8 }}>
+          {(['All', 'Income', 'Expense'] as TxFilter[]).map(tf => (
+            <TouchableOpacity key={tf} style={[s.typeChip, { backgroundColor: typeF === tf ? '#6C63FF' : t.card, borderColor: t.border }]} onPress={() => setTypeF(tf)}>
+              <Text style={{ color: typeF === tf ? '#fff' : t.text, fontWeight: '600', fontSize: 13 }}>
+                {tf === 'Income' ? '📈 ' : tf === 'Expense' ? '📉 ' : ''}{tf}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Analytics */}
+        <Text style={[s.sectionTitle, { color: t.text }]}>Analytics</Text>
+        <BarChart data={[incSpark, expSpark]} labels={LBLS} colors={['#27ae60', '#e74c3c']} title="Monthly Income vs Expense" isDark={isDark} />
+
+        <View style={[s.chartCard, { backgroundColor: t.card, borderColor: t.border }]}>
+          <Text style={[s.chartTitle, { color: t.text }]}>Venue-wise Revenue</Text>
+          {venueStats.map(v => <HBar key={v.v} label={v.v} value={v.inc} max={maxVenue} color="#6C63FF" isDark={isDark} />)}
+        </View>
+
+        {expCats.length > 0 && (
+          <View style={[s.chartCard, { backgroundColor: t.card, borderColor: t.border }]}>
+            <Text style={[s.chartTitle, { color: t.text }]}>Expense Breakdown</Text>
+            {expCats.map(c => <HBar key={c.c} label={c.c} value={c.a} max={maxExpCat} color="#e74c3c" isDark={isDark} />)}
+          </View>
+        )}
+
+        {incCats.length > 0 && (
+          <View style={[s.chartCard, { backgroundColor: t.card, borderColor: t.border }]}>
+            <Text style={[s.chartTitle, { color: t.text }]}>Income Breakdown</Text>
+            {incCats.map(c => <HBar key={c.c} label={c.c} value={c.a} max={maxIncCat} color="#27ae60" isDark={isDark} />)}
+          </View>
+        )}
+
+        {/* Venue Performance */}
+        <Text style={[s.sectionTitle, { color: t.text, marginTop: 8 }]}>Venue Performance</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+          {venueStats.map(v => (
+            <View key={v.v} style={[s.venueCard, { backgroundColor: t.card, borderColor: t.border }]}>
+              <Text style={{ color: t.text, fontWeight: '700', fontSize: 13, marginBottom: 6 }} numberOfLines={2}>{v.v}</Text>
+              <Text style={{ color: '#27ae60', fontSize: 12 }}>Income: {fmt(v.inc)}</Text>
+              <Text style={{ color: '#e74c3c', fontSize: 12 }}>Expense: {fmt(v.exp)}</Text>
+              <Text style={{ color: '#6C63FF', fontSize: 13, fontWeight: '700', marginTop: 4 }}>Net: {fmt(v.inc - v.exp)}</Text>
+              <View style={{ height: 4, backgroundColor: t.border, borderRadius: 2, marginTop: 8 }}>
+                <View style={{ height: 4, width: `${maxVenue > 0 ? (v.inc / maxVenue) * 100 : 0}%` as any, backgroundColor: '#6C63FF', borderRadius: 2 }} />
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Transactions */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginTop: 8, marginBottom: 8 }}>
+          <Text style={[s.sectionTitle, { color: t.text, marginBottom: 0, paddingHorizontal: 0, flex: 1 }]}>Transactions ({filtered.length})</Text>
+          <TouchableOpacity
+            style={[s.sortBtn, { backgroundColor: sortKey !== 'date-desc' ? '#6C63FF' : t.card, borderColor: sortKey !== 'date-desc' ? '#6C63FF' : t.border }]}
+            onPress={() => setShowSort(true)}
+          >
+            <Text style={{ fontSize: 15, color: sortKey !== 'date-desc' ? '#fff' : t.text }}>⇅ Sort</Text>
+          </TouchableOpacity>
+        </View>
+        {sortKey !== 'date-desc' && (
+          <View style={{ paddingHorizontal: 16, marginBottom: 6 }}>
+            <Text style={{ color: '#6C63FF', fontSize: 12 }}>
+              {SORT_OPTIONS.find(o => o.key === sortKey)?.icon} {SORT_OPTIONS.find(o => o.key === sortKey)?.label}
+            </Text>
+          </View>
+        )}
+        <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
+          <TextInput
+            style={[s.searchBox, { backgroundColor: t.card, borderColor: t.border, color: t.text }]}
+            value={search} onChangeText={setSearch}
+            placeholder="Search by category, venue, notes..." placeholderTextColor={t.sub}
+          />
+        </View>
+
+        {sorted.length === 0 ? (
+          <View style={{ alignItems: 'center', padding: 32 }}>
+            <Text style={{ fontSize: 40 }}>📂</Text>
+            <Text style={{ color: t.sub, marginTop: 8 }}>No transactions found</Text>
+          </View>
+        ) : sorted.map(tx => (
+          <TxRow key={tx.id} tx={tx} isDark={isDark}
+            onView={() => setViewTx(tx)}
+            onEdit={() => openEdit(tx)}
+            onDelete={() => handleDelete(tx.id)}
+            onPrint={() => handlePrint(tx)}
+          />
+        ))}
+
+      </ScrollView>
+
+      <TxModal visible={showAdd} form={form} setForm={setForm} onSave={handleSave}
+        onClose={() => { setShowAdd(false); setEditTx(null); }} isDark={isDark} isEdit={isEdit} />
+      <DetailModal tx={viewTx} onClose={() => setViewTx(null)}
+        onEdit={() => { if (viewTx) { openEdit(viewTx); setViewTx(null); } }}
+        onDelete={() => { if (viewTx) { handleDelete(viewTx.id); setViewTx(null); } }}
+        isDark={isDark} />
+      <SortModal visible={showSort} current={sortKey} onSelect={setSortKey} onClose={() => setShowSort(false)} isDark={isDark} />
+    </SafeAreaView>
+  );
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  safe:        { flex: 1 },
+  header:      { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  headerTitle: { fontSize: 22, fontWeight: '800' },
+  iconBtn:     { padding: 8, borderRadius: 8 },
+  addBtn:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  chip:        { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, marginRight: 8 },
+  venueChip:   { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16, borderWidth: 1, marginRight: 8 },
+  typeChip:    { flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1, alignItems: 'center' },
+  grid:        { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 8, marginVertical: 4 },
+  summaryCard: { width: (W - 48) / 2, padding: 12, borderRadius: 12, borderWidth: 1 },
+  summaryIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  summaryTitle:{ fontSize: 11, marginBottom: 2 },
+  summaryAmt:  { fontSize: 16, fontWeight: '800' },
+  sectionTitle:{ fontSize: 16, fontWeight: '700', marginBottom: 8, paddingHorizontal: 16 },
+  chartCard:   { marginHorizontal: 16, marginBottom: 12, padding: 14, borderRadius: 12, borderWidth: 1 },
+  chartTitle:  { fontSize: 14, fontWeight: '700', marginBottom: 12 },
+  venueCard:   { width: 160, padding: 14, borderRadius: 12, borderWidth: 1, marginRight: 10 },
+  txRow:       { marginHorizontal: 16, marginBottom: 10, padding: 12, borderRadius: 12, borderWidth: 1 },
+  txBadge:     { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 5, marginRight: 7 },
+  txCat:       { fontSize: 13, fontWeight: '600' },
+  txStatus:    { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  txBtn:       { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 7, borderWidth: 1 },
+  searchBox:   { padding: 10, borderRadius: 9, borderWidth: 1, fontSize: 14 },
+  overlay:     { flex: 1, backgroundColor: '#00000080', justifyContent: 'flex-end' },
+  sheet:       { maxHeight: '92%', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+  sheetTitle:  { fontSize: 18, fontWeight: '700' },
+  fieldLabel:  { fontSize: 12, fontWeight: '600', marginBottom: 5 },
+  selectTrigger: { flexDirection: 'row', alignItems: 'center', padding: 11, borderRadius: 8, borderWidth: 1, marginBottom: 0 },
+  selectPanel: { margin: 24, borderRadius: 12, borderWidth: 1, padding: 12 },
+  selectSearch:{ padding: 9, borderRadius: 8, borderWidth: 1, marginBottom: 8 },
+  selectOpt:   { padding: 12, borderRadius: 6 },
+  input:       { padding: 11, borderRadius: 8, borderWidth: 1, marginBottom: 12, fontSize: 14 },
+  typeBtn:     { flex: 1, padding: 10, borderRadius: 8, borderWidth: 1.5, alignItems: 'center' },
+  saveBtn:     { padding: 14, borderRadius: 10, alignItems: 'center', marginTop: 8 },
+  saveTxt:     { color: '#fff', fontWeight: '700', fontSize: 15 },
+  detailAmt:   { padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12 },
+  detailRow:   { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1 },
+  detailBtn:   { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
+  sortBtn:     { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1 },
+  sortRow:     { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, marginBottom: 6, borderWidth: 1 },
+});

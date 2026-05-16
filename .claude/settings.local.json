@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npm list *)",
+      "Bash(curl -s \"http://localhost:8081/index.ts.bundle?platform=android&dev=true&hot=false\")",
+      "Bash(curl -s \"http://localhost:8081/app/%28tabs%29/_layout.tsx.bundle?platform=android&dev=true\")",
+      "Bash(python3 -c \"import sys,json; d=sys.stdin.read\\(\\); print\\(d[:300] if not d.startswith\\('{'\\) else json.loads\\(d\\).get\\('message',''\\)\\)\")",
+      "Bash(npm uninstall *)",
+      "Bash(node src/index.js)"
+    ]
+  }
+}

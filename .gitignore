@@ -1,0 +1,9 @@
+node_modules
+.expo
+.env
+dist
+build
+coverage
+.DS_Store
+A1GroupsApp/node_modules
+server/node_modules

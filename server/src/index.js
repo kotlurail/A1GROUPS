@@ -11,21 +11,26 @@ const uploadRoutes      = require('./routes/upload');
 const employeeRoutes    = require('./routes/employees');
 const decorRoutes       = require('./routes/decors');
 const bookingRoutes     = require('./routes/bookings');
+const authRoutes        = require('./routes/auth');
+const requireAuth       = require('./middleware/auth');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api/transactions', transactionRoutes);
-app.use('/api/inventory',    inventoryRoutes);
-app.use('/api/rentals',      rentalRoutes);
-app.use('/api/events',       eventRoutes);
-app.use('/api/upload',       uploadRoutes);
-app.use('/api/employees',    employeeRoutes);
-app.use('/api/decors',       decorRoutes);
-app.use('/api/bookings',     bookingRoutes);
+// ── Public routes (no token needed) ──────────────────────────────────────────
+app.use('/api/auth', authRoutes);
+
+// ── Protected routes ──────────────────────────────────────────────────────────
+app.use('/api/transactions', requireAuth, transactionRoutes);
+app.use('/api/inventory',    requireAuth, inventoryRoutes);
+app.use('/api/rentals',      requireAuth, rentalRoutes);
+app.use('/api/events',       requireAuth, eventRoutes);
+app.use('/api/upload',       requireAuth, uploadRoutes);
+app.use('/api/employees',    requireAuth, employeeRoutes);
+app.use('/api/decors',       requireAuth, decorRoutes);
+app.use('/api/bookings',     requireAuth, bookingRoutes);
 
 app.get('/', (_req, res) => res.json({ status: 'A1 Groups API running' }));
 

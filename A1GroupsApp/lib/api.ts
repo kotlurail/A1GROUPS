@@ -7,6 +7,7 @@
  *   • Production                : https://api.yourdomain.com
  */
 import { Platform } from 'react-native';
+import { getToken } from './auth';
 
 export const BASE_URL =
   Platform.OS === 'android'
@@ -16,8 +17,13 @@ export const BASE_URL =
 // ─── Generic helpers ───────────────────────────────────────────────────────────
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = await getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options?.headers ?? {}),
+    },
     ...options,
   });
   if (!res.ok) {
@@ -32,6 +38,12 @@ const post   = <T>(path: string, body: unknown)   => request<T>(path, { method: 
 const put    = <T>(path: string, body: unknown)   => request<T>(path, { method: 'PUT',    body: JSON.stringify(body) });
 const patch  = <T>(path: string, body: unknown)   => request<T>(path, { method: 'PATCH',  body: JSON.stringify(body) });
 const del    = <T>(path: string)                  => request<T>(path, { method: 'DELETE' });
+
+// ─── Auth API ─────────────────────────────────────────────────────────────────
+
+export const authApi = {
+  login: (pin: string) => post<{ token: string }>('/api/auth/login', { pin }),
+};
 
 // ─── Types (mirror backend models) ────────────────────────────────────────────
 

@@ -9,10 +9,13 @@
 import { Platform } from 'react-native';
 import { getToken } from './auth';
 
+const _configuredUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
+
+// Android emulator cannot reach host's localhost — remap automatically
 export const BASE_URL =
   Platform.OS === 'android'
-    ? 'http://10.0.2.2:5000'
-    : 'http://localhost:5000';
+    ? _configuredUrl.replace('localhost', '10.0.2.2')
+    : _configuredUrl;
 
 // ─── Generic helpers ───────────────────────────────────────────────────────────
 

@@ -4,12 +4,13 @@
   "description": "A1 Groups backend — Express + MongoDB Atlas + Cloudinary",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev":   "cross-env NODE_ENV=development nodemon src/index.js",
+    "start": "cross-env NODE_ENV=production  node src/index.js"
   },
   "dependencies": {
     "cloudinary": "^2.5.1",
     "cors": "^2.8.5",
+    "cross-env": "^10.1.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.3",

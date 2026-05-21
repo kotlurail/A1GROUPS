@@ -407,7 +407,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
         if (status !== 'granted') return Alert.alert('Permission needed', 'Allow photo library access to add images.');
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true, quality: 0.7,
       });
       if (!result.canceled) {
@@ -415,7 +415,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
         try {
           const urls = await Promise.all(result.assets.map((a: any) => uploadApi.uploadImage(a.uri)));
           upd({ images: [...entry.images, ...urls] });
-        } catch (e: any) { Alert.alert('Upload failed', e.message); }
+        } catch (e: any) { console.error('Upload error:', e); Alert.alert('Upload failed', e.message); }
         finally { setUploading(false); }
       }
     } catch { Alert.alert('Error', 'Could not open image picker.'); }
@@ -444,7 +444,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
     try {
       if (isNew) { await onCreate?.(final); onClose(); }
       else       { await onUpdate?.(final); setIsEditing(false); }
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { console.error('Save error:', e); Alert.alert('Error', e.message ?? String(e)); }
     finally { setSaving(false); }
   }
 

@@ -342,7 +342,7 @@ function DecorSectionBlock({section,onChange,onDelete,isDark,idx}:{
       const perm=await ImagePicker.requestMediaLibraryPermissionsAsync();
       if(!perm.granted){Alert.alert('Permission required','Allow access to photos to upload images.');return;}
       const res=await ImagePicker.launchImageLibraryAsync({
-        mediaTypes:ImagePicker.MediaTypeOptions?.Images??'Images',
+        mediaTypes: ['images'],
         allowsMultipleSelection:true,quality:0.7,
       });
       if(res.canceled||!res.assets?.length) return;

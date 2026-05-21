@@ -371,7 +371,12 @@ export const uploadApi = {
       form.append('image', { uri: localUri, name: filename, type: mime } as any);
     }
 
-    const res = await fetch(`${BASE_URL}/api/upload`, { method: 'POST', body: form });
+    const token = await getToken();
+    const res = await fetch(`${BASE_URL}/api/upload`, {
+      method: 'POST',
+      body: form,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error ?? `Upload failed (HTTP ${res.status})`);

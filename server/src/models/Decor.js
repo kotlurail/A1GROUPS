@@ -1,4 +1,4 @@
-const { Schema, model } = require('mongoose');
+const { Schema, model, Types } = require('mongoose');
 
 const decorItemSchema = new Schema(
   { name: { type: String, default: '' }, quantity: { type: Number, default: 1 }, costPerUnit: { type: Number, default: 0 } },
@@ -26,6 +26,7 @@ const decorSchema = new Schema(
     paymentStatus: { type: String, enum: ['pending', 'partial', 'completed'], default: 'pending' },
     comments:      { type: String, default: '' },
     createdDate:   { type: String, default: '' },
+    bookingId:     { type: Types.ObjectId, ref: 'Booking', default: null },
   },
   { timestamps: true }
 );

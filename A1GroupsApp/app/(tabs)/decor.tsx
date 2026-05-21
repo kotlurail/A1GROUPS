@@ -15,7 +15,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { decorsApi, uploadApi } from '../../lib/api';
+import { decorsApi, bookingsApi, uploadApi, BookingDoc } from '../../lib/api';
 
 let ImagePicker: any = null;
 try { ImagePicker = require('expo-image-picker'); } catch {}
@@ -55,6 +55,7 @@ interface DecorEntry {
   paymentStatus: PaymentStatus;
   comments: string;
   createdDate: string;
+  bookingId?: string | null;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -138,6 +139,7 @@ function normalizeDecor(d: any): DecorEntry {
     paymentStatus: d.paymentStatus ?? 'pending',
     comments: d.comments ?? '',
     createdDate: d.createdDate ?? '',
+    bookingId: d.bookingId ?? undefined,
   };
 }
 
@@ -145,6 +147,7 @@ function toDecorPayload(entry: DecorEntry) {
   const { id: _id, ...rest } = entry;
   return {
     ...rest,
+    bookingId: entry.bookingId ?? null,
     decorItems: entry.decorItems.map(({ id: _i, ...item }) => item),
     requiredItems: entry.requiredItems.map(({ id: _i, ...item }) => item),
   };
@@ -398,8 +401,18 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
   const fullImgRef = useRef<ScrollView>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving]       = useState(false);
+  const [bookings, setBookings]   = useState<BookingDoc[]>([]);
+  const [showBookingPicker, setShowBookingPicker] = useState(false);
+  const [bookingSearch, setBookingSearch]         = useState('');
+
+  // Load bookings once for the link picker
+  useEffect(() => {
+    bookingsApi.getAll().then(setBookings).catch(() => {});
+  }, []);
 
   function upd(patch: Partial<DecorEntry>) { setEntry(e => ({ ...e, ...patch })); }
+
+  const linkedBooking = bookings.find(b => b._id === entry.bookingId);
 
   async function pickImages() {
     if (!ImagePicker) return Alert.alert('Not available', 'Image picker is not available on this platform.');
@@ -583,6 +596,28 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
 
                   <Text style={dmod.label}>Location</Text>
                   <TextInput style={dmod.input} placeholder="e.g. A1 Function Hall" value={entry.location} onChangeText={v => upd({ location: v })} />
+
+                  {/* ── Link to Booking (optional) ── */}
+                  <Text style={dmod.label}>Link to Venue Booking <Text style={{ color: '#aaa', fontWeight: '400' }}>(Optional)</Text></Text>
+                  {linkedBooking ? (
+                    <View style={dmod.linkedBookingCard}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={dmod.linkedBookingTitle} numberOfLines={1}>
+                          {linkedBooking.venue}  ·  {linkedBooking.date}
+                        </Text>
+                        <Text style={dmod.linkedBookingSub} numberOfLines={1}>
+                          {linkedBooking.client}  —  {linkedBooking.eventName}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => upd({ bookingId: null })} style={dmod.clearLinkBtn}>
+                        <Text style={dmod.clearLinkTxt}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={dmod.linkBookingBtn} onPress={() => { setBookingSearch(''); setShowBookingPicker(true); }}>
+                      <Text style={dmod.linkBookingTxt}>🔗  Select a Booking…</Text>
+                    </TouchableOpacity>
+                  )}
                 </>
               ) : (
                 <View style={dmod.infoTable}>
@@ -599,6 +634,19 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                       <Text style={dmod.infoVal}>{v}</Text>
                     </View>
                   ))}
+                  {linkedBooking && (
+                    <View style={[dmod.infoRow, { backgroundColor: '#6C63FF10', borderRadius: 8, marginTop: 4, paddingHorizontal: 8 }]}>
+                      <Text style={dmod.infoKey}>Linked Booking</Text>
+                      <View style={{ flex: 2, alignItems: 'flex-end' }}>
+                        <Text style={[dmod.infoVal, { color: '#6C63FF', fontWeight: '700' }]} numberOfLines={1}>
+                          {linkedBooking.venue}
+                        </Text>
+                        <Text style={[dmod.infoVal, { fontSize: 11, color: '#888' }]} numberOfLines={1}>
+                          {linkedBooking.date}  ·  {linkedBooking.client}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
@@ -804,6 +852,40 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
+
+      {/* Booking picker modal */}
+      <Modal visible={showBookingPicker} transparent animationType="slide" onRequestClose={() => setShowBookingPicker(false)}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: '#00000060' }} activeOpacity={1} onPress={() => setShowBookingPicker(false)}>
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%', padding: 16 }}
+            onStartShouldSetResponder={() => true}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 12 }}>Select a Booking</Text>
+            <TextInput
+              style={{ backgroundColor: '#f4f6fb', borderRadius: 10, borderWidth: 1, borderColor: '#e2e5f0', padding: 10, marginBottom: 10, fontSize: 14, color: '#1a1a2e' }}
+              placeholder="Search client, venue, event…" placeholderTextColor="#aaa"
+              value={bookingSearch} onChangeText={setBookingSearch} autoFocus
+            />
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              {bookings
+                .filter(b => {
+                  const q = bookingSearch.toLowerCase();
+                  return !q || b.client.toLowerCase().includes(q) || b.venue.toLowerCase().includes(q) || b.eventName.toLowerCase().includes(q) || b.date.includes(q);
+                })
+                .map(b => (
+                  <TouchableOpacity
+                    key={b._id}
+                    style={{ padding: 12, borderRadius: 10, marginBottom: 6, backgroundColor: entry.bookingId === b._id ? '#6C63FF12' : '#f8f9ff', borderWidth: 1, borderColor: entry.bookingId === b._id ? '#6C63FF50' : '#e8eaf0' }}
+                    onPress={() => { upd({ bookingId: b._id }); setShowBookingPicker(false); }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1a1a2e' }}>{b.venue}  ·  {b.date}</Text>
+                    <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{b.client}  —  {b.eventName}</Text>
+                  </TouchableOpacity>
+                ))
+              }
+              {bookings.length === 0 && <Text style={{ color: '#aaa', textAlign: 'center', padding: 24 }}>No bookings found</Text>}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Full-screen carousel viewer */}
       {fullImgIdx !== null && (
@@ -1178,6 +1260,15 @@ const dmod = StyleSheet.create({
   dotsRow:       { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10, gap: 6 },
   dot:           { width: 7, height: 7, borderRadius: 4, backgroundColor: '#ddd' },
   dotActive:     { width: 10, height: 10, borderRadius: 5, backgroundColor: '#6C63FF' },
+
+  // Booking link
+  linkBookingBtn:      { borderWidth: 1.5, borderColor: '#6C63FF80', borderStyle: 'dashed', borderRadius: 10, padding: 12, alignItems: 'center', marginBottom: 8 },
+  linkBookingTxt:      { color: '#6C63FF', fontSize: 14, fontWeight: '600' },
+  linkedBookingCard:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#6C63FF12', borderWidth: 1, borderColor: '#6C63FF40', borderRadius: 10, padding: 12, marginBottom: 8 },
+  linkedBookingTitle:  { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
+  linkedBookingSub:    { fontSize: 11, color: '#666', marginTop: 2 },
+  clearLinkBtn:        { width: 28, height: 28, borderRadius: 14, backgroundColor: '#e74c3c20', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  clearLinkTxt:        { color: '#e74c3c', fontSize: 13, fontWeight: '700' },
 });
 
 const sel = StyleSheet.create({

@@ -327,12 +327,15 @@ export interface DecorDoc {
   paymentStatus: 'pending' | 'partial' | 'completed';
   comments: string;
   createdDate: string;
+  bookingId?: string | null;
   createdAt: string;
 }
 
 export const decorsApi = {
-  getAll: (params?: { eventType?: string; status?: string; search?: string }) => {
-    const q = new URLSearchParams(params as Record<string, string>).toString();
+  getAll: (params?: { eventType?: string; status?: string; search?: string; bookingId?: string }) => {
+    const q = new URLSearchParams(
+      Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null && v !== '')) as Record<string, string>
+    ).toString();
     return get<DecorDoc[]>(`/api/decors${q ? '?' + q : ''}`);
   },
   create: (body: Omit<DecorDoc, '_id' | 'createdAt'>) => post<DecorDoc>('/api/decors', body),

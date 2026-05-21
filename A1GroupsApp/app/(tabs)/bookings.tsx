@@ -15,7 +15,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { bookingsApi } from '../../lib/api';
+import { bookingsApi, decorsApi, DecorDoc } from '../../lib/api';
 
 const SHEET_MAX_H = Dimensions.get('window').height * 0.88;
 
@@ -591,6 +591,14 @@ function BookingDetailModal({
   const [balAmount, setBalAmount]         = useState('');
   const [balMode, setBalMode]             = useState<PaymentMode>('Cash');
   const [paymentLocked, setPaymentLocked] = useState(init.status === 'paid');
+
+  // Linked decor
+  const [linkedDecors, setLinkedDecors] = useState<DecorDoc[]>([]);
+  useEffect(() => {
+    decorsApi.getAll({ bookingId: init.id })
+      .then(setLinkedDecors)
+      .catch(() => {});
+  }, [init.id]);
 
   const router = useRouter();
 
@@ -1282,6 +1290,46 @@ function BookingDetailModal({
                 </View>
               )}
             </View>
+
+            {/* ── Linked Decor Entries ── */}
+            {linkedDecors.length > 0 && (
+              <View style={det.sectionCard}>
+                <Text style={det.sectionTitle}>🎨 Linked Decor</Text>
+                <Text style={det.sectionHint}>Decor entries linked to this booking from the Decor page</Text>
+                {linkedDecors.map(d => {
+                  const total   = d.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+                  const paid    = d.advanceAmount + d.settledAmount;
+                  const balance = Math.max(0, total - paid);
+                  const statusColor = d.paymentStatus === 'completed' ? '#27ae60' : d.paymentStatus === 'partial' ? '#f39c12' : '#e74c3c';
+                  return (
+                    <View key={d._id} style={{ borderWidth: 1, borderColor: '#8e44ad30', borderRadius: 10, padding: 12, marginBottom: 10, backgroundColor: '#8e44ad08' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <Text style={{ fontWeight: '700', color: '#1a1a2e', fontSize: 14, flex: 1 }} numberOfLines={1}>{d.eventName}</Text>
+                        <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: statusColor + '20' }}>
+                          <Text style={{ color: statusColor, fontSize: 11, fontWeight: '700' }}>
+                            {d.paymentStatus.charAt(0).toUpperCase() + d.paymentStatus.slice(1)}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={{ color: '#666', fontSize: 12, marginBottom: 8 }}>{d.customerName}  ·  {d.eventDate || '—'}</Text>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {[
+                          ['Total Cost',    fmtMoney(total),   '#8e44ad'],
+                          ['Advance Paid',  fmtMoney(d.advanceAmount), '#27ae60'],
+                          ['Settled',       fmtMoney(d.settledAmount), '#27ae60'],
+                          ['Balance Due',   fmtMoney(balance), balance > 0 ? '#e74c3c' : '#27ae60'],
+                        ].map(([label, value, color]) => (
+                          <View key={label as string} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: '#e8eaf0' }}>
+                            <Text style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>{label}</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: color as string }}>{value}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             {/* ── Other Expenses ── */}
             <View style={det.sectionCard}>

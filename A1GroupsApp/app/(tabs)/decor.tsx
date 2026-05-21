@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { decorsApi, uploadApi } from '../../lib/api';
@@ -393,7 +393,9 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
 }) {
   const [entry, setEntry]         = useState<DecorEntry>(init);
   const [isEditing, setIsEditing] = useState(isNew);
-  const [fullImg, setFullImg]     = useState<string | null>(null);
+  const [fullImgIdx, setFullImgIdx] = useState<number | null>(null);
+  const [activeImg, setActiveImg]   = useState(0);
+  const fullImgRef = useRef<ScrollView>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving]       = useState(false);
 
@@ -504,29 +506,57 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
 
             {/* ── Image Gallery ── */}
             <View style={dmod.section}>
-              <Text style={dmod.sectionTitle}>Images</Text>
-              {!isEditing && entry.images.length === 0 ? (
+              <Text style={dmod.sectionTitle}>
+                Images {entry.images.length > 0 ? `(${entry.images.length})` : ''}
+              </Text>
+
+              {/* View mode — full-width carousel */}
+              {!isEditing && entry.images.length > 0 && (
+                <View>
+                  <ScrollView
+                    horizontal pagingEnabled showsHorizontalScrollIndicator={false}
+                    style={{ width: SW - 32 }}
+                    onMomentumScrollEnd={e => {
+                      setActiveImg(Math.round(e.nativeEvent.contentOffset.x / (SW - 32)));
+                    }}
+                  >
+                    {entry.images.map((uri, i) => (
+                      <TouchableOpacity key={i} activeOpacity={0.92} onPress={() => setFullImgIdx(i)}>
+                        <Image source={{ uri }} style={dmod.carouselImg} resizeMode="cover" />
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  {entry.images.length > 1 && (
+                    <View style={dmod.dotsRow}>
+                      {entry.images.map((_, i) => (
+                        <View key={i} style={[dmod.dot, i === activeImg && dmod.dotActive]} />
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {!isEditing && entry.images.length === 0 && (
                 <Text style={dmod.hint}>No images added.</Text>
-              ) : (
+              )}
+
+              {/* Edit mode — thumbnail row with add button */}
+              {isEditing && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {entry.images.map((uri, i) => (
                     <View key={i} style={dmod.imgWrap}>
-                      <TouchableOpacity onPress={() => setFullImg(uri)} activeOpacity={0.85}>
+                      <TouchableOpacity onPress={() => setFullImgIdx(i)} activeOpacity={0.85}>
                         <Image source={{ uri }} style={dmod.imgThumb} />
                       </TouchableOpacity>
-                      {isEditing && (
-                        <TouchableOpacity style={dmod.imgRemove} onPress={() => removeImage(i)}>
-                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>x</Text>
-                        </TouchableOpacity>
-                      )}
+                      <TouchableOpacity style={dmod.imgRemove} onPress={() => removeImage(i)}>
+                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>✕</Text>
+                      </TouchableOpacity>
                     </View>
                   ))}
-                  {isEditing && (
-                    <TouchableOpacity style={dmod.imgAddBtn} onPress={pickImages} disabled={uploading}>
-                      <Text style={dmod.imgAddPlus}>{uploading ? '…' : '+'}</Text>
-                      <Text style={dmod.imgAddLabel}>{uploading ? 'Uploading…' : 'Add Photos'}</Text>
-                    </TouchableOpacity>
-                  )}
+                  <TouchableOpacity style={dmod.imgAddBtn} onPress={pickImages} disabled={uploading}>
+                    <Text style={dmod.imgAddPlus}>{uploading ? '…' : '+'}</Text>
+                    <Text style={dmod.imgAddLabel}>{uploading ? 'Uploading…' : 'Add Photos'}</Text>
+                  </TouchableOpacity>
                 </ScrollView>
               )}
             </View>
@@ -775,14 +805,30 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
         </KeyboardAvoidingView>
       </View>
 
-      {/* Full-screen image viewer */}
-      {fullImg && (
-        <Modal transparent animationType="fade" onRequestClose={() => setFullImg(null)}>
+      {/* Full-screen carousel viewer */}
+      {fullImgIdx !== null && (
+        <Modal transparent animationType="fade" onRequestClose={() => setFullImgIdx(null)}>
           <View style={dmod.fullImgBg}>
-            <TouchableOpacity style={dmod.fullImgClose} onPress={() => setFullImg(null)}>
-              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>X</Text>
+            <TouchableOpacity style={dmod.fullImgClose} onPress={() => setFullImgIdx(null)}>
+              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>✕</Text>
             </TouchableOpacity>
-            <Image source={{ uri: fullImg }} style={dmod.fullImg} resizeMode="contain" />
+            <Text style={{ color: '#fff', fontSize: 13, opacity: 0.6, marginBottom: 10 }}>
+              {fullImgIdx + 1} / {entry.images.length}
+            </Text>
+            <ScrollView
+              ref={fullImgRef}
+              horizontal pagingEnabled showsHorizontalScrollIndicator={false}
+              onLayout={() => {
+                fullImgRef.current?.scrollTo({ x: fullImgIdx * SW, animated: false });
+              }}
+              onMomentumScrollEnd={e => {
+                setFullImgIdx(Math.round(e.nativeEvent.contentOffset.x / SW));
+              }}
+            >
+              {entry.images.map((uri, i) => (
+                <Image key={i} source={{ uri }} style={dmod.fullImg} resizeMode="contain" />
+              ))}
+            </ScrollView>
           </View>
         </Modal>
       )}
@@ -1127,7 +1173,11 @@ const dmod = StyleSheet.create({
   saveBtnTxt:    { fontSize: 15, fontWeight: '700', color: '#fff' },
   fullImgBg:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', justifyContent: 'center', alignItems: 'center' },
   fullImgClose:  { position: 'absolute', top: Platform.OS === 'ios' ? 52 : 32, right: 20, zIndex: 10, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  fullImg:       { width: SW, height: SH * 0.8 },
+  fullImg:       { width: SW, height: SH * 0.85 },
+  carouselImg:   { width: SW - 32, height: 240, borderRadius: 14 },
+  dotsRow:       { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10, gap: 6 },
+  dot:           { width: 7, height: 7, borderRadius: 4, backgroundColor: '#ddd' },
+  dotActive:     { width: 10, height: 10, borderRadius: 5, backgroundColor: '#6C63FF' },
 });
 
 const sel = StyleSheet.create({

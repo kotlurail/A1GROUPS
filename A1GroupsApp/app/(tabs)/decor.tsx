@@ -12,10 +12,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { decorsApi, bookingsApi, uploadApi, BookingDoc } from '../../lib/api';
+import ImageViewer from '../../lib/ImageViewer';
 
 let ImagePicker: any = null;
 try { ImagePicker = require('expo-image-picker'); } catch {}
@@ -333,7 +334,7 @@ function DecorCard({ entry, onView, onEdit, onPrint, onDelete }: {
       {entry.images.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={dc.imgRow}>
           {entry.images.slice(0, 5).map((uri, i) => (
-            <Image key={i} source={{ uri }} style={dc.thumb} />
+            <Image key={i} source={{ uri }} style={dc.thumb} resizeMode="contain" />
           ))}
         </ScrollView>
       )}
@@ -398,7 +399,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
   const [isEditing, setIsEditing] = useState(isNew);
   const [fullImgIdx, setFullImgIdx] = useState<number | null>(null);
   const [activeImg, setActiveImg]   = useState(0);
-  const fullImgRef = useRef<ScrollView>(null);
+
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving]       = useState(false);
   const [bookings, setBookings]   = useState<BookingDoc[]>([]);
@@ -535,7 +536,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                   >
                     {entry.images.map((uri, i) => (
                       <TouchableOpacity key={i} activeOpacity={0.92} onPress={() => setFullImgIdx(i)}>
-                        <Image source={{ uri }} style={dmod.carouselImg} resizeMode="cover" />
+                        <Image source={{ uri }} style={dmod.carouselImg} resizeMode="contain" />
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -559,7 +560,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                   {entry.images.map((uri, i) => (
                     <View key={i} style={dmod.imgWrap}>
                       <TouchableOpacity onPress={() => setFullImgIdx(i)} activeOpacity={0.85}>
-                        <Image source={{ uri }} style={dmod.imgThumb} />
+                        <Image source={{ uri }} style={dmod.imgThumb} resizeMode="contain" />
                       </TouchableOpacity>
                       <TouchableOpacity style={dmod.imgRemove} onPress={() => removeImage(i)}>
                         <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>✕</Text>
@@ -887,32 +888,13 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
         </TouchableOpacity>
       </Modal>
 
-      {/* Full-screen carousel viewer */}
+      {/* Full-screen viewer */}
       {fullImgIdx !== null && (
-        <Modal transparent animationType="fade" onRequestClose={() => setFullImgIdx(null)}>
-          <View style={dmod.fullImgBg}>
-            <TouchableOpacity style={dmod.fullImgClose} onPress={() => setFullImgIdx(null)}>
-              <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>✕</Text>
-            </TouchableOpacity>
-            <Text style={{ color: '#fff', fontSize: 13, opacity: 0.6, marginBottom: 10 }}>
-              {fullImgIdx + 1} / {entry.images.length}
-            </Text>
-            <ScrollView
-              ref={fullImgRef}
-              horizontal pagingEnabled showsHorizontalScrollIndicator={false}
-              onLayout={() => {
-                fullImgRef.current?.scrollTo({ x: fullImgIdx * SW, animated: false });
-              }}
-              onMomentumScrollEnd={e => {
-                setFullImgIdx(Math.round(e.nativeEvent.contentOffset.x / SW));
-              }}
-            >
-              {entry.images.map((uri, i) => (
-                <Image key={i} source={{ uri }} style={dmod.fullImg} resizeMode="contain" />
-              ))}
-            </ScrollView>
-          </View>
-        </Modal>
+        <ImageViewer
+          images={entry.images}
+          initialIndex={fullImgIdx}
+          onClose={() => setFullImgIdx(null)}
+        />
       )}
     </Modal>
   );
@@ -1179,7 +1161,7 @@ const dc = StyleSheet.create({
   statusBadge:  { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   statusTxt:    { fontSize: 11, fontWeight: '800' },
   imgRow:       { marginBottom: 8 },
-  thumb:        { width: 70, height: 70, borderRadius: 10, marginRight: 8 },
+  thumb:        { width: 70, height: 70, borderRadius: 10, marginRight: 8, backgroundColor: '#1a1a2e' },
   metaRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 10 },
   meta:         { fontSize: 12, color: '#666' },
   upcomingChip: { backgroundColor: '#2980b922', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
@@ -1216,7 +1198,7 @@ const dmod = StyleSheet.create({
   label:         { fontSize: 11, fontWeight: '700', color: '#888', marginTop: 12, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 },
   input:         { backgroundColor: '#f4f6fb', borderRadius: 10, borderWidth: 1, borderColor: '#e2e5f0', paddingHorizontal: 12, paddingVertical: 11, fontSize: 14, color: '#1a1a2e' },
   imgWrap:       { marginRight: 8, position: 'relative' },
-  imgThumb:      { width: 90, height: 90, borderRadius: 12 },
+  imgThumb:      { width: 90, height: 90, borderRadius: 12, backgroundColor: '#1a1a2e' },
   imgRemove:     { position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center' },
   imgAddBtn:     { width: 90, height: 90, borderRadius: 12, borderWidth: 2, borderColor: '#6C63FF', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6C63FF08' },
   imgAddPlus:    { fontSize: 28, color: '#6C63FF', fontWeight: '300' },
@@ -1253,10 +1235,8 @@ const dmod = StyleSheet.create({
   cancelBtnTxt:  { fontSize: 15, fontWeight: '700', color: '#888' },
   saveBtn:       { flex: 2, paddingVertical: 14, borderRadius: 14, backgroundColor: '#6C63FF', alignItems: 'center' },
   saveBtnTxt:    { fontSize: 15, fontWeight: '700', color: '#fff' },
-  fullImgBg:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.94)', justifyContent: 'center', alignItems: 'center' },
-  fullImgClose:  { position: 'absolute', top: Platform.OS === 'ios' ? 52 : 32, right: 20, zIndex: 10, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  fullImg:       { width: SW, height: SH * 0.85 },
-  carouselImg:   { width: SW - 32, height: 240, borderRadius: 14 },
+
+  carouselImg:   { width: SW - 32, height: 260, borderRadius: 14, backgroundColor: '#1a1a2e' },
   dotsRow:       { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10, gap: 6 },
   dot:           { width: 7, height: 7, borderRadius: 4, backgroundColor: '#ddd' },
   dotActive:     { width: 10, height: 10, borderRadius: 5, backgroundColor: '#6C63FF' },

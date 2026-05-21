@@ -1,6 +1,7 @@
 import {
   Alert,
   Dimensions,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,7 +16,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { bookingsApi, decorsApi, DecorDoc } from '../../lib/api';
+import { bookingsApi, decorsApi, uploadApi, DecorDoc } from '../../lib/api';
+import ImageViewer from '../../lib/ImageViewer';
+
+let ImagePicker: any = null;
+try { ImagePicker = require('expo-image-picker'); } catch {}
 
 const SHEET_MAX_H = Dimensions.get('window').height * 0.88;
 
@@ -85,6 +90,12 @@ function toDateStr(year: number, month: number, day: number) {
 }
 function fmtMoney(n: number) { return '₹' + n.toLocaleString('en-IN'); }
 function isValidDate(s: string) { return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s).getTime()); }
+function fmtDateStr(d: string) {
+  if (!isValidDate(d)) return d || '—';
+  const dt = new Date(d + 'T00:00:00');
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${dt.getDate()} ${M[dt.getMonth()]} ${dt.getFullYear()}`;
+}
 
 function elecCharge(b: Booking) {
   if (b.startReading != null && b.endReading != null && b.endReading >= b.startReading)
@@ -552,6 +563,550 @@ async function printBooking(b: Booking) {
   }
 }
 
+// ── Decor Detail Sheet (view + edit linked decor from inside a booking) ─────────
+
+const DECOR_EVENT_TYPES = [
+  'Reception','Engagement','Wedding','Birthday','Half Saree',
+  'Dhoti Ceremony','Haldi','Sangeeth','Baby Shower',
+  'Anniversary','Corporate Event','Others',
+];
+
+function buildDecorPDF(d: DecorDoc): string {
+  const total = d.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+  const bal   = Math.max(0, total - d.advanceAmount - d.settledAmount);
+  const TD  = 'padding:8px 12px;font-size:12px;color:#333;border-bottom:1px solid #ebebeb;';
+  const TDR = TD + 'text-align:right;';
+  const TH  = 'padding:7px 12px;font-size:11px;font-weight:700;color:#555;background:#f5f5f5;text-align:left;';
+  const THR = TH + 'text-align:right;';
+  const itemRows = d.decorItems.map(i =>
+    `<tr><td style="${TD}">${i.name}</td><td style="${TDR}">${i.quantity}</td><td style="${TDR}">${fmtMoney(i.costPerUnit)}</td><td style="${TDR}font-weight:600;">${fmtMoney(i.quantity * i.costPerUnit)}</td></tr>`
+  ).join('');
+  const reqRows = d.requiredItems.map(r =>
+    `<tr><td style="${TD}">${r.name}</td><td style="${TDR}">${r.quantity}</td><td style="${TD}">${r.description || '&mdash;'}</td></tr>`
+  ).join('');
+  const today = new Date().toISOString().slice(0, 10);
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<style>body{margin:0;padding:24px;font-family:Arial,sans-serif;font-size:13px;color:#222;background:#fff;}table{width:100%;border-collapse:collapse;}</style>
+</head><body>
+<table style="margin-bottom:16px;"><tr>
+  <td><p style="margin:0;font-size:22px;font-weight:700;color:#111;">A1 Groups</p><p style="margin:4px 0 0;font-size:11px;color:#888;">Decor Management</p></td>
+  <td style="text-align:right;"><p style="margin:0;font-size:18px;font-weight:700;">DECOR ESTIMATE</p><p style="margin:4px 0 0;font-size:11px;color:#888;">Date: ${fmtDateStr(d.createdDate)}</p></td>
+</tr></table>
+<hr style="border:none;border-top:2px solid #222;margin:0 0 14px;"/>
+<table style="margin-bottom:14px;"><tr>
+  <td style="width:50%;vertical-align:top;padding-right:12px;">
+    <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#555;margin:0 0 6px;">Customer</p>
+    <table style="border:1px solid #ddd;">
+      <tr><td style="${TD}color:#888;">Name</td><td style="${TDR}font-weight:600;">${d.customerName}</td></tr>
+      <tr><td style="${TD}color:#888;">Mobile</td><td style="${TDR}">${d.mobile}</td></tr>
+      <tr><td style="${TD}color:#888;">Event</td><td style="${TDR}">${d.eventName}</td></tr>
+    </table>
+  </td>
+  <td style="width:50%;vertical-align:top;padding-left:12px;">
+    <p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#555;margin:0 0 6px;">Event Details</p>
+    <table style="border:1px solid #ddd;">
+      <tr><td style="${TD}color:#888;">Type</td><td style="${TDR}font-weight:600;">${d.eventType || '—'}</td></tr>
+      <tr><td style="${TD}color:#888;">Date</td><td style="${TDR}">${fmtDateStr(d.eventDate)}</td></tr>
+      <tr><td style="${TD}color:#888;">Location</td><td style="${TDR}">${d.location || '&mdash;'}</td></tr>
+    </table>
+  </td>
+</tr></table>
+<p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#555;margin:14px 0 6px;">Decor Items</p>
+<table style="border:1px solid #ddd;">
+  <tr><th style="${TH}">Item</th><th style="${THR}">Qty</th><th style="${THR}">Rate</th><th style="${THR}">Amount</th></tr>
+  ${itemRows || `<tr><td colspan="4" style="padding:10px 12px;color:#aaa;font-style:italic;">No items added</td></tr>`}
+  <tr><td colspan="3" style="padding:9px 12px;font-size:13px;font-weight:700;background:#f5f5f5;border-top:2px solid #ddd;">Total Decor Cost</td>
+      <td style="padding:9px 12px;font-size:13px;font-weight:700;text-align:right;background:#f5f5f5;border-top:2px solid #ddd;">${fmtMoney(total)}</td></tr>
+</table>
+<p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#555;margin:14px 0 6px;">Payment</p>
+<table style="border:1px solid #ddd;">
+  <tr><td style="${TD}color:#888;">Advance Paid</td><td style="${TDR}">${fmtMoney(d.advanceAmount)}</td></tr>
+  <tr><td style="${TD}color:#888;">Amount Settled</td><td style="${TDR}">${fmtMoney(d.settledAmount)}</td></tr>
+  <tr style="background:${bal > 0 ? '#fff2f2' : '#f2fff5'};"><td style="padding:10px 12px;font-size:14px;font-weight:700;color:${bal > 0 ? '#c0392b' : '#1e8449'};">${bal > 0 ? 'Balance Due' : 'Fully Paid'}</td>
+  <td style="padding:10px 12px;font-size:14px;font-weight:700;text-align:right;color:${bal > 0 ? '#c0392b' : '#1e8449'};">${fmtMoney(bal)}</td></tr>
+</table>
+${reqRows ? `<p style="font-size:10px;font-weight:700;text-transform:uppercase;color:#555;margin:14px 0 6px;">Items Required</p><table style="border:1px solid #ddd;"><tr><th style="${TH}">Item</th><th style="${THR}">Qty</th><th style="${TH}">Description</th></tr>${reqRows}</table>` : ''}
+${d.comments ? `<p style="margin:14px 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#555;">Notes</p><p style="border:1px solid #ddd;padding:10px;border-radius:4px;font-size:12px;color:#444;">${d.comments}</p>` : ''}
+<table style="margin-top:24px;border-top:1px solid #ccc;padding-top:8px;"><tr>
+  <td style="font-size:10px;color:#999;">A1 Groups &middot; Decor Management</td>
+  <td style="font-size:10px;color:#bbb;text-align:right;">Generated ${fmtDateStr(today)}</td>
+</tr></table>
+</body></html>`;
+}
+
+async function printDecorDoc(d: DecorDoc) {
+  const html = buildDecorPDF(d);
+  try {
+    if (Platform.OS === 'web') {
+      await Print.printAsync({ html });
+    } else {
+      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Decor Estimate' });
+      else await Print.printAsync({ html });
+    }
+  } catch (err: any) { Alert.alert('Error', err?.message ?? 'Could not generate PDF.'); }
+}
+
+function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved }: {
+  decor: DecorDoc;
+  initialMode?: 'view' | 'edit';
+  onClose: () => void;
+  onSaved: (updated: DecorDoc) => void;
+}) {
+  const [mode, setMode]     = useState<'view' | 'edit'>(initialMode);
+  const [saving, setSaving] = useState(false);
+  const [doc, setDoc]       = useState<DecorDoc>(init);
+
+  // Edit form fields
+  const [eventName,    setEventName]    = useState(init.eventName);
+  const [customerName, setCustomerName] = useState(init.customerName);
+  const [mobile,       setMobile]       = useState(init.mobile);
+  const [eventType,    setEventType]    = useState(init.eventType);
+  const [eventDate,    setEventDate]    = useState(init.eventDate);
+  const [location,     setLocation]     = useState(init.location);
+  const [decorItems,   setDecorItems]   = useState(init.decorItems.map(i => ({ ...i })));
+  const [reqItems,     setReqItems]     = useState(init.requiredItems.map(r => ({ ...r })));
+  const [advance,      setAdvance]      = useState(String(init.advanceAmount));
+  const [settled,      setSettled]      = useState(String(init.settledAmount));
+  const [payStatus,    setPayStatus]    = useState<'pending' | 'partial' | 'completed'>(init.paymentStatus);
+  const [comments,     setComments]     = useState(init.comments);
+  const [images,       setImages]       = useState<string[]>(init.images ?? []);
+  const [uploading,    setUploading]    = useState(false);
+  const [activeImg,    setActiveImg]    = useState(0);
+  const [fullImgIdx,   setFullImgIdx]   = useState<number | null>(null);
+
+  const [newItemName, setNewItemName] = useState('');
+  const [newItemQty,  setNewItemQty]  = useState('1');
+  const [newItemCost, setNewItemCost] = useState('');
+  const [newReqName,  setNewReqName]  = useState('');
+  const [newReqQty,   setNewReqQty]   = useState('1');
+  const [newReqDesc,  setNewReqDesc]  = useState('');
+
+  const { width: SW } = Dimensions.get('window');
+  const decorTotal = decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+  const paid       = Number(advance || 0) + Number(settled || 0);
+  const balance    = Math.max(0, decorTotal - paid);
+
+  async function pickImages() {
+    if (!ImagePicker) return Alert.alert('Not available', 'Image picker is not available on this platform.');
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') return Alert.alert('Permission needed', 'Allow photo library access to add images.');
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.7,
+      });
+      if (!result.canceled && result.assets?.length) {
+        setUploading(true);
+        try {
+          const urls = await Promise.all(result.assets.map((a: any) => uploadApi.uploadImage(a.uri)));
+          setImages(prev => [...prev, ...urls]);
+        } catch (e: any) { Alert.alert('Upload failed', e.message); }
+        finally { setUploading(false); }
+      }
+    } catch (e: any) { Alert.alert('Error', e.message); }
+  }
+
+  function removeImage(idx: number) { setImages(prev => prev.filter((_, i) => i !== idx)); }
+
+  function addDecorItem() {
+    if (!newItemName.trim()) return;
+    setDecorItems(p => [...p, { name: newItemName.trim(), quantity: Number(newItemQty) || 1, costPerUnit: Number(newItemCost) || 0 }]);
+    setNewItemName(''); setNewItemQty('1'); setNewItemCost('');
+  }
+  function removeDecorItem(idx: number) { setDecorItems(p => p.filter((_, i) => i !== idx)); }
+
+  function addReqItem() {
+    if (!newReqName.trim()) return;
+    setReqItems(p => [...p, { name: newReqName.trim(), quantity: Number(newReqQty) || 1, description: newReqDesc.trim() }]);
+    setNewReqName(''); setNewReqQty('1'); setNewReqDesc('');
+  }
+  function removeReqItem(idx: number) { setReqItems(p => p.filter((_, i) => i !== idx)); }
+
+  async function handleSave() {
+    if (!eventName.trim())    return Alert.alert('Required', 'Event name is required.');
+    if (!customerName.trim()) return Alert.alert('Required', 'Customer name is required.');
+    if (!mobile.trim())       return Alert.alert('Required', 'Mobile number is required.');
+    setSaving(true);
+    try {
+      const updated = await decorsApi.update(init._id, {
+        eventName: eventName.trim(), customerName: customerName.trim(), mobile: mobile.trim(),
+        eventType, eventDate, location: location.trim(),
+        images, decorItems, requiredItems: reqItems,
+        advanceAmount: Number(advance) || 0, settledAmount: Number(settled) || 0,
+        paymentStatus: payStatus, comments: comments.trim(),
+      });
+      setDoc(updated);
+      onSaved(updated);
+      setMode('view');
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Could not save changes.');
+    } finally { setSaving(false); }
+  }
+
+  const dTotal = doc.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+  const dBal   = Math.max(0, dTotal - doc.advanceAmount - doc.settledAmount);
+  const sc     = doc.paymentStatus === 'completed' ? '#27ae60' : doc.paymentStatus === 'partial' ? '#f39c12' : '#e74c3c';
+
+  return (
+    <>
+    <Modal transparent animationType="slide" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: '#00000055' }}>
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', position: 'absolute', bottom: 0 }}>
+          <View style={{ backgroundColor: '#f4f6fb', borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: SHEET_MAX_H }}>
+
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#eaecf4' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e' }} numberOfLines={1}>
+                  {mode === 'edit' ? '✏️ Edit Decor' : '🎨 Decor Details'}
+                </Text>
+                <Text style={{ fontSize: 11, color: '#888', marginTop: 1 }} numberOfLines={1}>{doc.eventName}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                {mode === 'view' && (
+                  <>
+                    <TouchableOpacity onPress={() => printDecorDoc(doc)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#27ae6015', borderWidth: 1, borderColor: '#27ae6040' }}>
+                      <Text style={{ color: '#27ae60', fontSize: 12, fontWeight: '700' }}>🖨 Print</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setMode('edit')} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#8e44ad15', borderWidth: 1, borderColor: '#8e44ad40' }}>
+                      <Text style={{ color: '#8e44ad', fontSize: 12, fontWeight: '700' }}>✏️ Edit</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+                {mode === 'edit' && (
+                  <>
+                    <TouchableOpacity onPress={() => setMode('view')} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#f0f0f8' }}>
+                      <Text style={{ color: '#666', fontSize: 12, fontWeight: '700' }}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleSave} disabled={saving} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: saving ? '#ccc' : '#27ae60' }}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{saving ? 'Saving…' : '✓ Save'}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+                <TouchableOpacity onPress={onClose} style={{ padding: 6 }}>
+                  <Text style={{ color: '#aaa', fontSize: 18, fontWeight: '700' }}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+
+              {mode === 'view' ? (
+                <>
+                  {/* Image Gallery — view mode */}
+                  {doc.images.length > 0 && (
+                    <View style={{ marginBottom: 16 }}>
+                      <ScrollView
+                        horizontal pagingEnabled showsHorizontalScrollIndicator={false}
+                        style={{ borderRadius: 14, overflow: 'hidden' }}
+                        onMomentumScrollEnd={e => setActiveImg(Math.round(e.nativeEvent.contentOffset.x / (SW - 32)))}
+                      >
+                        {doc.images.map((uri, i) => (
+                          <TouchableOpacity key={i} activeOpacity={0.9} onPress={() => setFullImgIdx(i)}>
+                            <Image source={{ uri }} style={{ width: SW - 32, height: 240, borderRadius: 14, backgroundColor: '#1a1a2e' }} resizeMode="contain" />
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                      {doc.images.length > 1 && (
+                        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8, gap: 6 }}>
+                          {doc.images.map((_, i) => (
+                            <View key={i} style={{ width: i === activeImg ? 10 : 7, height: i === activeImg ? 10 : 7, borderRadius: 5, backgroundColor: i === activeImg ? '#6C63FF' : '#ddd' }} />
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  {doc.images.length === 0 && (
+                    <View style={{ backgroundColor: '#f8f8fc', borderRadius: 12, borderWidth: 1, borderColor: '#e8eaf0', padding: 20, alignItems: 'center', marginBottom: 14 }}>
+                      <Text style={{ fontSize: 24, marginBottom: 4 }}>🖼</Text>
+                      <Text style={{ fontSize: 12, color: '#aaa' }}>No images added to this decor</Text>
+                    </View>
+                  )}
+
+                  {/* Info table */}
+                  <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e8eaf0', marginBottom: 14, overflow: 'hidden' }}>
+                    {[
+                      ['Event Name', doc.eventName],
+                      ['Customer',   doc.customerName],
+                      ['Mobile',     doc.mobile],
+                      ['Event Type', doc.eventType || '—'],
+                      ['Event Date', fmtDateStr(doc.eventDate)],
+                      ['Location',   doc.location || '—'],
+                      ['Created',    fmtDateStr(doc.createdDate)],
+                    ].map(([label, value], idx) => (
+                      <View key={label} style={{ flexDirection: 'row', padding: 10, borderTopWidth: idx > 0 ? 1 : 0, borderTopColor: '#f4f4f4' }}>
+                        <Text style={{ flex: 1, fontSize: 12, color: '#888', fontWeight: '600' }}>{label}</Text>
+                        <Text style={{ flex: 2, fontSize: 13, color: '#1a1a2e', fontWeight: '500' }}>{value}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Decor items */}
+                  {doc.decorItems.length > 0 && (
+                    <>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Decor Items</Text>
+                      <View style={{ backgroundColor: '#fff', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#e8eaf0', marginBottom: 14 }}>
+                        <View style={{ flexDirection: 'row', backgroundColor: '#f5f5fb', padding: 8 }}>
+                          {['ITEM','QTY','RATE','TOTAL'].map((h, i) => (
+                            <Text key={h} style={{ flex: i === 0 ? 3 : i === 1 ? 1 : 2, fontSize: 11, fontWeight: '700', color: '#555', textAlign: i > 0 ? 'right' : 'left' }}>{h}</Text>
+                          ))}
+                        </View>
+                        {doc.decorItems.map((item, i) => (
+                          <View key={item._id ?? i} style={{ flexDirection: 'row', padding: 8, borderTopWidth: 1, borderTopColor: '#f0f0f0' }}>
+                            <Text style={{ flex: 3, fontSize: 12, color: '#333' }} numberOfLines={1}>{item.name}</Text>
+                            <Text style={{ flex: 1, fontSize: 12, color: '#555', textAlign: 'right' }}>{item.quantity}</Text>
+                            <Text style={{ flex: 2, fontSize: 12, color: '#555', textAlign: 'right' }}>{fmtMoney(item.costPerUnit)}</Text>
+                            <Text style={{ flex: 2, fontSize: 12, fontWeight: '600', color: '#333', textAlign: 'right' }}>{fmtMoney(item.quantity * item.costPerUnit)}</Text>
+                          </View>
+                        ))}
+                        <View style={{ flexDirection: 'row', padding: 10, borderTopWidth: 2, borderTopColor: '#e0e0f0', backgroundColor: '#f9f9ff' }}>
+                          <Text style={{ flex: 6, fontSize: 13, fontWeight: '700', color: '#1a1a2e' }}>Total</Text>
+                          <Text style={{ flex: 2, fontSize: 13, fontWeight: '800', color: '#8e44ad', textAlign: 'right' }}>{fmtMoney(dTotal)}</Text>
+                        </View>
+                      </View>
+                    </>
+                  )}
+
+                  {/* Required items */}
+                  {doc.requiredItems.length > 0 && (
+                    <>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Items Required</Text>
+                      <View style={{ backgroundColor: '#fff', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#e8eaf0', marginBottom: 14 }}>
+                        {doc.requiredItems.map((item, i) => (
+                          <View key={item._id ?? i} style={{ flexDirection: 'row', alignItems: 'center', padding: 10, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#f0f0f0' }}>
+                            <Text style={{ flex: 2, fontSize: 12, color: '#333' }}>{item.name}</Text>
+                            <Text style={{ width: 36, fontSize: 12, color: '#888', textAlign: 'center' }}>×{item.quantity}</Text>
+                            <Text style={{ flex: 3, fontSize: 12, color: '#777' }}>{item.description || '—'}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </>
+                  )}
+
+                  {/* Payment tiles */}
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Payment</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                    {([
+                      ['Total',   fmtMoney(dTotal),              '#8e44ad'],
+                      ['Advance', fmtMoney(doc.advanceAmount),   '#27ae60'],
+                      ['Settled', fmtMoney(doc.settledAmount),   '#27ae60'],
+                      ['Balance', fmtMoney(dBal),                dBal > 0 ? '#e74c3c' : '#27ae60'],
+                    ] as [string, string, string][]).map(([lbl, val, col]) => (
+                      <View key={lbl} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 10, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: '#e8eaf0' }}>
+                        <Text style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>{lbl}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '800', color: col }}>{val}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Payment status */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#e8eaf0', marginBottom: 14 }}>
+                    <Text style={{ flex: 1, fontSize: 13, color: '#555' }}>Payment Status</Text>
+                    <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: sc + '20' }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: sc, textTransform: 'capitalize' }}>{doc.paymentStatus}</Text>
+                    </View>
+                  </View>
+
+                  {!!doc.comments && (
+                    <View style={{ backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#e8eaf0', marginBottom: 14 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#aaa', marginBottom: 4 }}>NOTES</Text>
+                      <Text style={{ fontSize: 13, color: '#444', fontStyle: 'italic' }}>"{doc.comments}"</Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* ── EDIT MODE ── */}
+                  {/* Image section — edit mode */}
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#555', marginBottom: 8 }}>
+                    Photos {images.length > 0 ? `(${images.length})` : ''}
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+                    {images.map((uri, i) => (
+                      <View key={i} style={{ marginRight: 8, position: 'relative' }}>
+                        <TouchableOpacity activeOpacity={0.85} onPress={() => setFullImgIdx(i)}>
+                          <Image source={{ uri }} style={{ width: 90, height: 90, borderRadius: 12, backgroundColor: '#1a1a2e' }} resizeMode="contain" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => removeImage(i)}
+                          style={{ position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <TouchableOpacity
+                      onPress={pickImages} disabled={uploading}
+                      style={{ width: 90, height: 90, borderRadius: 12, borderWidth: 2, borderColor: '#6C63FF', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6C63FF08' }}
+                    >
+                      <Text style={{ fontSize: 26, color: '#6C63FF', fontWeight: '300' }}>{uploading ? '…' : '+'}</Text>
+                      <Text style={{ fontSize: 10, color: '#6C63FF', fontWeight: '700', marginTop: 2 }}>{uploading ? 'Uploading…' : 'Add Photos'}</Text>
+                    </TouchableOpacity>
+                  </ScrollView>
+
+                  <View style={{ height: 1, backgroundColor: '#e8eaf0', marginBottom: 14 }} />
+                  <Text style={det.inputLabel}>Event Name *</Text>
+                  <TextInput style={[det.input, { marginBottom: 10 }]} value={eventName} onChangeText={setEventName} placeholder="Event name" />
+
+                  <Text style={det.inputLabel}>Customer Name *</Text>
+                  <TextInput style={[det.input, { marginBottom: 10 }]} value={customerName} onChangeText={setCustomerName} placeholder="Customer name" />
+
+                  <Text style={det.inputLabel}>Mobile *</Text>
+                  <TextInput style={[det.input, { marginBottom: 12 }]} value={mobile} onChangeText={setMobile} placeholder="Mobile number" keyboardType="phone-pad" />
+
+                  <Text style={det.inputLabel}>Event Type</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                    {DECOR_EVENT_TYPES.map(t => (
+                      <TouchableOpacity key={t} onPress={() => setEventType(t)}
+                        style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: eventType === t ? '#8e44ad' : '#f0f0f8', borderWidth: 1, borderColor: eventType === t ? '#8e44ad' : '#e0e0f0' }}>
+                        <Text style={{ fontSize: 12, color: eventType === t ? '#fff' : '#555', fontWeight: eventType === t ? '700' : '400' }}>{t}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={det.inputLabel}>Event Date</Text>
+                      <TextInput style={det.input} value={eventDate} onChangeText={setEventDate} placeholder="YYYY-MM-DD" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={det.inputLabel}>Location</Text>
+                      <TextInput style={det.input} value={location} onChangeText={setLocation} placeholder="Venue / location" />
+                    </View>
+                  </View>
+
+                  <View style={{ height: 1, backgroundColor: '#e8eaf0', marginBottom: 14 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#555', marginBottom: 8 }}>Decor Items</Text>
+
+                  {decorItems.map((item, idx) => (
+                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, padding: 10, marginBottom: 6, borderWidth: 1, borderColor: '#e8eaf0' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1a1a2e' }}>{item.name}</Text>
+                        <Text style={{ fontSize: 11, color: '#888' }}>{item.quantity} × {fmtMoney(item.costPerUnit)} = {fmtMoney(item.quantity * item.costPerUnit)}</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => removeDecorItem(idx)} style={{ padding: 6, borderRadius: 6, backgroundColor: '#e74c3c12' }}>
+                        <Text style={{ color: '#e74c3c', fontSize: 13 }}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+
+                  <View style={{ backgroundColor: '#f9f9ff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#e0e0f0', marginBottom: 10 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', marginBottom: 6 }}>ADD ITEM</Text>
+                    <TextInput style={[det.input, { marginBottom: 6 }]} value={newItemName} onChangeText={setNewItemName} placeholder="Item name" />
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                      <TextInput style={[det.input, { flex: 1 }]} value={newItemQty} onChangeText={setNewItemQty} placeholder="Qty" keyboardType="number-pad" />
+                      <TextInput style={[det.input, { flex: 2 }]} value={newItemCost} onChangeText={setNewItemCost} placeholder="Cost / unit (₹)" keyboardType="number-pad" />
+                    </View>
+                    <TouchableOpacity style={{ backgroundColor: '#8e44ad', borderRadius: 8, padding: 9, alignItems: 'center' }} onPress={addDecorItem}>
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>+ Add Item</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {decorItems.length > 0 && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 14 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#8e44ad' }}>Subtotal: {fmtMoney(decorTotal)}</Text>
+                    </View>
+                  )}
+
+                  <View style={{ height: 1, backgroundColor: '#e8eaf0', marginBottom: 14 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#555', marginBottom: 8 }}>Items Required</Text>
+
+                  {reqItems.map((item, idx) => (
+                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, padding: 10, marginBottom: 6, borderWidth: 1, borderColor: '#e8eaf0' }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1a1a2e' }}>{item.name} ×{item.quantity}</Text>
+                        {!!item.description && <Text style={{ fontSize: 11, color: '#888' }}>{item.description}</Text>}
+                      </View>
+                      <TouchableOpacity onPress={() => removeReqItem(idx)} style={{ padding: 6, borderRadius: 6, backgroundColor: '#e74c3c12' }}>
+                        <Text style={{ color: '#e74c3c', fontSize: 13 }}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+
+                  <View style={{ backgroundColor: '#f9f9ff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#e0e0f0', marginBottom: 14 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', marginBottom: 6 }}>ADD REQUIRED ITEM</Text>
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
+                      <TextInput style={[det.input, { flex: 2 }]} value={newReqName} onChangeText={setNewReqName} placeholder="Item name" />
+                      <TextInput style={[det.input, { flex: 1 }]} value={newReqQty} onChangeText={setNewReqQty} placeholder="Qty" keyboardType="number-pad" />
+                    </View>
+                    <TextInput style={[det.input, { marginBottom: 8 }]} value={newReqDesc} onChangeText={setNewReqDesc} placeholder="Description (optional)" />
+                    <TouchableOpacity style={{ backgroundColor: '#2980b9', borderRadius: 8, padding: 9, alignItems: 'center' }} onPress={addReqItem}>
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>+ Add Required Item</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={{ height: 1, backgroundColor: '#e8eaf0', marginBottom: 14 }} />
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#555', marginBottom: 8 }}>Payment Details</Text>
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={det.inputLabel}>Advance (₹)</Text>
+                      <TextInput style={det.input} value={advance} onChangeText={setAdvance} placeholder="0" keyboardType="number-pad" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={det.inputLabel}>Settled (₹)</Text>
+                      <TextInput style={det.input} value={settled} onChangeText={setSettled} placeholder="0" keyboardType="number-pad" />
+                    </View>
+                  </View>
+
+                  <Text style={det.inputLabel}>Payment Status</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+                    {(['pending', 'partial', 'completed'] as const).map(s => (
+                      <TouchableOpacity key={s} onPress={() => setPayStatus(s)}
+                        style={{ flex: 1, padding: 8, borderRadius: 8, alignItems: 'center', backgroundColor: payStatus === s ? (s === 'completed' ? '#27ae60' : s === 'partial' ? '#f39c12' : '#e74c3c') : '#f0f0f8', borderWidth: 1, borderColor: payStatus === s ? 'transparent' : '#e0e0f0' }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', textTransform: 'capitalize', color: payStatus === s ? '#fff' : '#555' }}>{s}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {decorTotal > 0 && (
+                    <View style={{ backgroundColor: '#f9f0ff', borderRadius: 10, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: '#d7b8f3' }}>
+                      {[
+                        ['Total Cost', fmtMoney(decorTotal), '#8e44ad'],
+                        ['Total Paid', fmtMoney(paid),       '#27ae60'],
+                        ['Balance',   fmtMoney(balance),     balance > 0 ? '#e74c3c' : '#27ae60'],
+                      ].map(([lbl, val, col]) => (
+                        <View key={lbl} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
+                          <Text style={{ fontSize: 12, color: '#888' }}>{lbl}</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: col }}>{val}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  <Text style={det.inputLabel}>Comments / Notes</Text>
+                  <TextInput style={[det.input, { height: 80, textAlignVertical: 'top', marginBottom: 16 }]}
+                    value={comments} onChangeText={setComments} placeholder="Any notes about this decor…" multiline />
+
+                  <TouchableOpacity style={[det.saveBtn, { backgroundColor: saving ? '#aaa' : '#27ae60', marginBottom: 10 }]} onPress={handleSave} disabled={saving}>
+                    <Text style={det.saveTxt}>{saving ? 'Saving…' : '✓ Save Changes'}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={det.closeBtn} onPress={() => setMode('view')}>
+                    <Text style={det.closeTxt}>Cancel</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+              <View style={{ height: 28 }} />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+    {fullImgIdx !== null && (
+      <ImageViewer
+        images={mode === 'view' ? doc.images : images}
+        initialIndex={fullImgIdx}
+        onClose={() => setFullImgIdx(null)}
+      />
+    )}
+    </>
+  );
+}
+
 // ── Booking Detail / Edit Modal ────────────────────────────────────────────────
 function BookingDetailModal({
   booking: init, onClose, onUpdate,
@@ -592,13 +1147,73 @@ function BookingDetailModal({
   const [balMode, setBalMode]             = useState<PaymentMode>('Cash');
   const [paymentLocked, setPaymentLocked] = useState(init.status === 'paid');
 
-  // Linked decor
-  const [linkedDecors, setLinkedDecors] = useState<DecorDoc[]>([]);
+  // Linked decors (decors that reference this booking)
+  const [linkedDecors, setLinkedDecors]       = useState<DecorDoc[]>([]);
+  const [allDecors, setAllDecors]             = useState<DecorDoc[]>([]);
+  const [showDecorPicker, setShowDecorPicker] = useState(false);
+  const [decorPickerSearch, setDecorPickerSearch] = useState('');
+  const [linkingDecor, setLinkingDecor]       = useState(false);
+  const [activeDecor, setActiveDecor]         = useState<{ decor: DecorDoc; mode: 'view' | 'edit' } | null>(null);
+
+  const refreshLinked = useCallback(() => {
+    decorsApi.getAll({ bookingId: booking.id }).then(setLinkedDecors).catch(() => {});
+  }, [booking.id]);
+
   useEffect(() => {
-    decorsApi.getAll({ bookingId: init.id })
-      .then(setLinkedDecors)
-      .catch(() => {});
+    refreshLinked();
+    decorsApi.getAll().then(setAllDecors).catch(() => {});
   }, [init.id]);
+
+  async function linkDecor(decor: DecorDoc) {
+    setLinkingDecor(true);
+    try {
+      await decorsApi.update(decor._id, { bookingId: booking.id });
+      // decorCost is auto-set on backend; update local booking state
+      const decorCost = decor.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+      const updated = { ...booking, decorCost };
+      setBooking(updated);
+      setDecorInput(decorCost.toString());
+      onUpdate(updated).catch(() => {});
+      await refreshLinked();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setLinkingDecor(false);
+      setShowDecorPicker(false);
+    }
+  }
+
+  async function unlinkDecor(decor: DecorDoc) {
+    const doUnlink = async () => {
+      try {
+        await decorsApi.update(decor._id, { bookingId: null });
+        const updated = { ...booking, decorCost: undefined };
+        setBooking(updated);
+        setDecorInput('');
+        onUpdate(updated).catch(() => {});
+        await refreshLinked();
+      } catch (e: any) {
+        Alert.alert('Error', e.message);
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Unlink "${decor.eventName}" from this booking?`)) doUnlink();
+    } else {
+      Alert.alert('Unlink Decor', `Remove "${decor.eventName}" from this booking?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Unlink', style: 'destructive', onPress: doUnlink },
+      ]);
+    }
+  }
+
+  function handleDecorSaved(updated: DecorDoc) {
+    setActiveDecor(prev => prev ? { ...prev, decor: updated } : null);
+    setLinkedDecors(prev => prev.map(d => d._id === updated._id ? updated : d));
+    const newCost = updated.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+    const refreshedBooking = { ...booking, decorCost: newCost };
+    setBooking(refreshedBooking);
+    onUpdate(refreshedBooking).catch(() => {});
+  }
 
   const router = useRouter();
 
@@ -890,6 +1505,7 @@ function BookingDetailModal({
   // VIEW MODE
   // ════════════════════════════════════════════════════════
   return (
+    <>
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <View style={det.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
@@ -1230,106 +1846,185 @@ function BookingDetailModal({
             <View style={det.sectionCard}>
               <View style={det.decorHeader}>
                 <View>
-                  <Text style={det.sectionTitle}>🎨 Decor Cost</Text>
-                  <Text style={det.sectionHint}>Added to customer total</Text>
+                  <Text style={det.sectionTitle}>🎨 Decor</Text>
+                  <Text style={det.sectionHint}>Link a decor entry or enter manually</Text>
                 </View>
                 <TouchableOpacity style={det.decorPageBtn} onPress={() => { onClose(); router.push('/(tabs)/decor' as any); }}>
-                  <Text style={det.decorPageTxt}>View Decor Page →</Text>
+                  <Text style={det.decorPageTxt}>Decor Page →</Text>
                 </TouchableOpacity>
               </View>
 
-              <Text style={det.inputLabel}>Decor Amount (₹)</Text>
-              <TextInput
-                style={det.input}
-                placeholder="e.g. 25000"
-                keyboardType="number-pad"
-                value={decorInput}
-                onChangeText={setDecorInput}
-              />
+              {/* ── Linked decor cards ── */}
+              {linkedDecors.map(d => {
+                const decorTotal  = d.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+                const paid        = d.advanceAmount + d.settledAmount;
+                const balance     = Math.max(0, decorTotal - paid);
+                const sc = d.paymentStatus === 'completed' ? '#27ae60' : d.paymentStatus === 'partial' ? '#f39c12' : '#e74c3c';
+                return (
+                  <View key={d._id} style={{ borderWidth: 1.5, borderColor: '#8e44ad40', borderRadius: 12, padding: 14, marginBottom: 12, backgroundColor: '#8e44ad06' }}>
+                    {/* Header row */}
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontWeight: '800', color: '#1a1a2e', fontSize: 15 }} numberOfLines={1}>{d.eventName}</Text>
+                        <Text style={{ color: '#666', fontSize: 12, marginTop: 1 }}>{d.customerName}  ·  {d.mobile}</Text>
+                      </View>
+                      <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: sc + '20', marginLeft: 8 }}>
+                        <Text style={{ color: sc, fontSize: 11, fontWeight: '700' }}>
+                          {d.paymentStatus.charAt(0).toUpperCase() + d.paymentStatus.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
 
-              {decorInput && !isNaN(Number(decorInput)) && Number(decorInput) > 0 ? (
-                <View style={det.decorCalcCard}>
-                  <View style={det.calcRow}>
-                    <Text style={det.calcLabel}>Base Venue Cost</Text>
-                    <Text style={det.calcValue}>{fmtMoney(booking.amount)}</Text>
+                    {/* Action buttons */}
+                    <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+                      <TouchableOpacity onPress={() => setActiveDecor({ decor: d, mode: 'view' })}
+                        style={{ flex: 1, paddingVertical: 6, borderRadius: 7, backgroundColor: '#3498db15', borderWidth: 1, borderColor: '#3498db40', alignItems: 'center' }}>
+                        <Text style={{ color: '#3498db', fontSize: 11, fontWeight: '700' }}>👁 View</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setActiveDecor({ decor: d, mode: 'edit' })}
+                        style={{ flex: 1, paddingVertical: 6, borderRadius: 7, backgroundColor: '#8e44ad15', borderWidth: 1, borderColor: '#8e44ad40', alignItems: 'center' }}>
+                        <Text style={{ color: '#8e44ad', fontSize: 11, fontWeight: '700' }}>✏️ Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => printDecorDoc(d)}
+                        style={{ flex: 1, paddingVertical: 6, borderRadius: 7, backgroundColor: '#27ae6015', borderWidth: 1, borderColor: '#27ae6040', alignItems: 'center' }}>
+                        <Text style={{ color: '#27ae60', fontSize: 11, fontWeight: '700' }}>🖨 Print</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => unlinkDecor(d)}
+                        style={{ flex: 1, paddingVertical: 6, borderRadius: 7, backgroundColor: '#e74c3c12', borderWidth: 1, borderColor: '#e74c3c40', alignItems: 'center' }}>
+                        <Text style={{ color: '#e74c3c', fontSize: 11, fontWeight: '700' }}>✕ Unlink</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Event details */}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                      {[
+                        d.eventType && { label: d.eventType, color: '#8e44ad' },
+                        d.eventDate && { label: '📅 ' + d.eventDate, color: '#555' },
+                        d.location  && { label: '📍 ' + d.location,  color: '#555' },
+                      ].filter(Boolean).map((tag: any) => (
+                        <View key={tag.label} style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#f0f0f8', borderWidth: 1, borderColor: '#e0e0f0' }}>
+                          <Text style={{ fontSize: 11, color: tag.color }}>{tag.label}</Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    {/* Decor items list */}
+                    {d.decorItems.length > 0 && (
+                      <View style={{ marginBottom: 10, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#e8eaf0' }}>
+                        <View style={{ flexDirection: 'row', backgroundColor: '#f5f5fb', padding: 8 }}>
+                          <Text style={{ flex: 3, fontSize: 11, fontWeight: '700', color: '#555' }}>ITEM</Text>
+                          <Text style={{ flex: 1, fontSize: 11, fontWeight: '700', color: '#555', textAlign: 'right' }}>QTY</Text>
+                          <Text style={{ flex: 2, fontSize: 11, fontWeight: '700', color: '#555', textAlign: 'right' }}>RATE</Text>
+                          <Text style={{ flex: 2, fontSize: 11, fontWeight: '700', color: '#555', textAlign: 'right' }}>TOTAL</Text>
+                        </View>
+                        {d.decorItems.map((item, i) => (
+                          <View key={item._id ?? i} style={{ flexDirection: 'row', padding: 8, borderTopWidth: 1, borderTopColor: '#f0f0f0' }}>
+                            <Text style={{ flex: 3, fontSize: 12, color: '#333' }} numberOfLines={1}>{item.name}</Text>
+                            <Text style={{ flex: 1, fontSize: 12, color: '#555', textAlign: 'right' }}>{item.quantity}</Text>
+                            <Text style={{ flex: 2, fontSize: 12, color: '#555', textAlign: 'right' }}>{fmtMoney(item.costPerUnit)}</Text>
+                            <Text style={{ flex: 2, fontSize: 12, fontWeight: '600', color: '#333', textAlign: 'right' }}>{fmtMoney(item.quantity * item.costPerUnit)}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Payment tiles */}
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {[
+                        ['Total Cost',   fmtMoney(decorTotal),        '#8e44ad'],
+                        ['Advance',      fmtMoney(d.advanceAmount),   '#27ae60'],
+                        ['Settled',      fmtMoney(d.settledAmount),   '#27ae60'],
+                        ['Balance',      fmtMoney(balance), balance > 0 ? '#e74c3c' : '#27ae60'],
+                      ].map(([lbl, val, col]) => (
+                        <View key={lbl as string} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 7, alignItems: 'center', borderWidth: 1, borderColor: '#e8eaf0' }}>
+                          <Text style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>{lbl}</Text>
+                          <Text style={{ fontSize: 12, fontWeight: '800', color: col as string }}>{val}</Text>
+                        </View>
+                      ))}
+                    </View>
+
+                    {/* Comments */}
+                    {!!d.comments && (
+                      <Text style={{ marginTop: 8, fontSize: 12, color: '#666', fontStyle: 'italic' }}>"{d.comments}"</Text>
+                    )}
                   </View>
-                  {ec > 0 && (
-                    <View style={det.calcRow}>
-                      <Text style={det.calcLabel}>+ Electricity</Text>
-                      <Text style={det.calcValue}>{fmtMoney(ec)}</Text>
+                );
+              })}
+
+              {/* ── Add decor button ── */}
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#8e44ad60', borderStyle: 'dashed', borderRadius: 10, padding: 12, marginBottom: 12, backgroundColor: '#8e44ad06' }}
+                onPress={() => { setDecorPickerSearch(''); setShowDecorPicker(true); }}
+                disabled={linkingDecor}
+              >
+                <Text style={{ color: '#8e44ad', fontSize: 14, fontWeight: '700' }}>
+                  {linkingDecor ? '⏳ Linking…' : `🔗  ${linkedDecors.length > 0 ? 'Add Another Decor' : 'Select a Decor'}`}
+                </Text>
+              </TouchableOpacity>
+
+              {/* ── Manual amount (fallback for externally managed decor) ── */}
+              {linkedDecors.length === 0 && (
+                <>
+                  <Text style={[det.sectionHint, { marginBottom: 6 }]}>Or enter decor cost manually:</Text>
+                  <Text style={det.inputLabel}>Decor Amount (₹)</Text>
+                  <TextInput
+                    style={det.input}
+                    placeholder="e.g. 25000"
+                    keyboardType="number-pad"
+                    value={decorInput}
+                    onChangeText={setDecorInput}
+                  />
+                  {decorInput && !isNaN(Number(decorInput)) && Number(decorInput) > 0 ? (
+                    <View style={det.decorCalcCard}>
+                      <View style={det.calcRow}>
+                        <Text style={det.calcLabel}>Base Venue Cost</Text>
+                        <Text style={det.calcValue}>{fmtMoney(booking.amount)}</Text>
+                      </View>
+                      {ec > 0 && (
+                        <View style={det.calcRow}>
+                          <Text style={det.calcLabel}>+ Electricity</Text>
+                          <Text style={det.calcValue}>{fmtMoney(ec)}</Text>
+                        </View>
+                      )}
+                      <View style={det.calcRow}>
+                        <Text style={det.calcLabel}>+ Decor</Text>
+                        <Text style={[det.calcValue, { color: '#8e44ad', fontWeight: '700' }]}>{fmtMoney(Number(decorInput))}</Text>
+                      </View>
+                      <View style={det.calcDivider} />
+                      <View style={det.calcRow}>
+                        <Text style={det.calcTotalLabel}>Customer Total</Text>
+                        <Text style={[det.calcTotalValue, { color: '#8e44ad' }]}>{fmtMoney(booking.amount + ec + Number(decorInput))}</Text>
+                      </View>
+                    </View>
+                  ) : null}
+                  <View style={[det.actionRow, { marginTop: 12 }]}>
+                    <TouchableOpacity style={[det.saveBtn, { backgroundColor: '#8e44ad' }]} onPress={saveDecorCost}>
+                      <Text style={det.saveTxt}>Save &amp; Apply to Total</Text>
+                    </TouchableOpacity>
+                    {(booking.decorCost ?? 0) > 0 && (
+                      <TouchableOpacity style={det.ghostBtn} onPress={clearDecorCost}>
+                        <Text style={det.ghostTxt}>Clear</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  {(booking.decorCost ?? 0) > 0 && (
+                    <View style={[det.savedBadge, { backgroundColor: '#8e44ad15', borderColor: '#8e44ad40' }]}>
+                      <Text style={[det.savedBadgeText, { color: '#8e44ad' }]}>
+                        ✓  Saved: {fmtMoney(booking.decorCost!)} added to customer total
+                      </Text>
                     </View>
                   )}
-                  <View style={det.calcRow}>
-                    <Text style={det.calcLabel}>+ Decor</Text>
-                    <Text style={[det.calcValue, { color: '#8e44ad', fontWeight: '700' }]}>{fmtMoney(Number(decorInput))}</Text>
-                  </View>
-                  <View style={det.calcDivider} />
-                  <View style={det.calcRow}>
-                    <Text style={det.calcTotalLabel}>Customer Total</Text>
-                    <Text style={[det.calcTotalValue, { color: '#8e44ad' }]}>{fmtMoney(booking.amount + ec + Number(decorInput))}</Text>
-                  </View>
-                </View>
-              ) : null}
+                </>
+              )}
 
-              <View style={[det.actionRow, { marginTop: 12 }]}>
-                <TouchableOpacity style={[det.saveBtn, { backgroundColor: '#8e44ad' }]} onPress={saveDecorCost}>
-                  <Text style={det.saveTxt}>Save &amp; Apply to Total</Text>
-                </TouchableOpacity>
-                {(booking.decorCost ?? 0) > 0 && (
-                  <TouchableOpacity style={det.ghostBtn} onPress={clearDecorCost}>
-                    <Text style={det.ghostTxt}>Clear</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {(booking.decorCost ?? 0) > 0 && (
+              {linkedDecors.length > 0 && (booking.decorCost ?? 0) > 0 && (
                 <View style={[det.savedBadge, { backgroundColor: '#8e44ad15', borderColor: '#8e44ad40' }]}>
                   <Text style={[det.savedBadgeText, { color: '#8e44ad' }]}>
-                    ✓  Saved: {fmtMoney(booking.decorCost!)} added to customer total
+                    ✓  Decor total {fmtMoney(booking.decorCost!)} added to customer total
                   </Text>
                 </View>
               )}
             </View>
-
-            {/* ── Linked Decor Entries ── */}
-            {linkedDecors.length > 0 && (
-              <View style={det.sectionCard}>
-                <Text style={det.sectionTitle}>🎨 Linked Decor</Text>
-                <Text style={det.sectionHint}>Decor entries linked to this booking from the Decor page</Text>
-                {linkedDecors.map(d => {
-                  const total   = d.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
-                  const paid    = d.advanceAmount + d.settledAmount;
-                  const balance = Math.max(0, total - paid);
-                  const statusColor = d.paymentStatus === 'completed' ? '#27ae60' : d.paymentStatus === 'partial' ? '#f39c12' : '#e74c3c';
-                  return (
-                    <View key={d._id} style={{ borderWidth: 1, borderColor: '#8e44ad30', borderRadius: 10, padding: 12, marginBottom: 10, backgroundColor: '#8e44ad08' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                        <Text style={{ fontWeight: '700', color: '#1a1a2e', fontSize: 14, flex: 1 }} numberOfLines={1}>{d.eventName}</Text>
-                        <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: statusColor + '20' }}>
-                          <Text style={{ color: statusColor, fontSize: 11, fontWeight: '700' }}>
-                            {d.paymentStatus.charAt(0).toUpperCase() + d.paymentStatus.slice(1)}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={{ color: '#666', fontSize: 12, marginBottom: 8 }}>{d.customerName}  ·  {d.eventDate || '—'}</Text>
-                      <View style={{ flexDirection: 'row', gap: 8 }}>
-                        {[
-                          ['Total Cost',    fmtMoney(total),   '#8e44ad'],
-                          ['Advance Paid',  fmtMoney(d.advanceAmount), '#27ae60'],
-                          ['Settled',       fmtMoney(d.settledAmount), '#27ae60'],
-                          ['Balance Due',   fmtMoney(balance), balance > 0 ? '#e74c3c' : '#27ae60'],
-                        ].map(([label, value, color]) => (
-                          <View key={label as string} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: '#e8eaf0' }}>
-                            <Text style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>{label}</Text>
-                            <Text style={{ fontSize: 13, fontWeight: '700', color: color as string }}>{value}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
 
             {/* ── Other Expenses ── */}
             <View style={det.sectionCard}>
@@ -1605,6 +2300,83 @@ function BookingDetailModal({
         </KeyboardAvoidingView>
       </View>
     </Modal>
+
+    {/* ── Decor Picker Modal ── */}
+    <Modal visible={showDecorPicker} transparent animationType="slide" onRequestClose={() => setShowDecorPicker(false)}>
+      <TouchableOpacity style={{ flex: 1, backgroundColor: '#00000060' }} activeOpacity={1} onPress={() => setShowDecorPicker(false)}>
+        <View
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '78%', padding: 16 }}
+          onStartShouldSetResponder={() => true}
+        >
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 4 }}>Select a Decor</Text>
+          <Text style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Only decors not linked to another booking are shown</Text>
+          <TextInput
+            style={{ backgroundColor: '#f4f6fb', borderRadius: 10, borderWidth: 1, borderColor: '#e2e5f0', padding: 10, marginBottom: 10, fontSize: 14, color: '#1a1a2e' }}
+            placeholder="Search event, customer, mobile…" placeholderTextColor="#aaa"
+            value={decorPickerSearch} onChangeText={setDecorPickerSearch} autoFocus
+          />
+          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {(() => {
+              const available = allDecors.filter(d => !d.bookingId || d.bookingId === booking.id);
+              const filtered  = available.filter(d => {
+                const q = decorPickerSearch.toLowerCase();
+                if (!q) return true;
+                return d.eventName.toLowerCase().includes(q) ||
+                  d.customerName.toLowerCase().includes(q) ||
+                  d.mobile.includes(q);
+              });
+              if (available.length === 0) {
+                return <Text style={{ color: '#aaa', textAlign: 'center', padding: 24 }}>No decors available to link</Text>;
+              }
+              if (filtered.length === 0) {
+                return <Text style={{ color: '#aaa', textAlign: 'center', padding: 24 }}>No results for "{decorPickerSearch}"</Text>;
+              }
+              return filtered.map(d => {
+                const isLinked = linkedDecors.some(ld => ld._id === d._id);
+                const decorTotal = d.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+                const statusColor = d.paymentStatus === 'completed' ? '#27ae60' : d.paymentStatus === 'partial' ? '#f39c12' : '#e74c3c';
+                const statusBg   = d.paymentStatus === 'completed' ? '#27ae6020' : d.paymentStatus === 'partial' ? '#f39c1220' : '#e74c3c20';
+                return (
+                  <TouchableOpacity
+                    key={d._id}
+                    style={{ padding: 12, borderRadius: 10, marginBottom: 8, backgroundColor: isLinked ? '#8e44ad08' : '#f8f9ff', borderWidth: 1, borderColor: isLinked ? '#8e44ad40' : '#e8eaf0' }}
+                    onPress={() => { if (!isLinked) { linkDecor(d); setShowDecorPicker(false); } }}
+                    disabled={isLinked}
+                    activeOpacity={isLinked ? 1 : 0.75}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1a1a2e', flex: 1, marginRight: 8 }}>{d.eventName}</Text>
+                      <View style={{ backgroundColor: statusBg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: statusColor, textTransform: 'capitalize' }}>{d.paymentStatus}</Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#555', marginTop: 3 }}>{d.customerName}  ·  {d.mobile}</Text>
+                    {!!d.eventDate && <Text style={{ fontSize: 11, color: '#999', marginTop: 2 }}>{d.eventDate}  {d.eventType ? `· ${d.eventType}` : ''}</Text>}
+                    {decorTotal > 0 && <Text style={{ fontSize: 12, color: '#8e44ad', marginTop: 3, fontWeight: '600' }}>Total: {fmtMoney(decorTotal)}</Text>}
+                    {isLinked && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                        <Text style={{ fontSize: 11, color: '#8e44ad', fontWeight: '700' }}>✓ Already linked to this booking</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              });
+            })()}
+          </ScrollView>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+
+    {/* ── Decor Detail / Edit Sheet ── */}
+    {activeDecor && (
+      <DecorDetailSheet
+        decor={activeDecor.decor}
+        initialMode={activeDecor.mode}
+        onClose={() => setActiveDecor(null)}
+        onSaved={handleDecorSaved}
+      />
+    )}
+    </>
   );
 }
 

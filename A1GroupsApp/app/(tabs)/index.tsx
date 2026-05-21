@@ -322,14 +322,10 @@ function RentalModal({visible,form,setForm,onSave,onClose,isDark,isEdit,inv,entr
                       )}
                     </View>
                     <Sel label="Item Name" value={ri.itemName}
-                      options={[
-                        ...inv.map(i=>i.name),
-                        ...INV_PRESETS.filter(p=>!inv.find(i=>i.name===p.name)).map(p=>p.name),
-                      ]}
+                      options={inv.map(i=>i.name)}
                       onChange={v=>{
                         const f=inv.find(i=>i.name===v);
-                        const preset=INV_PRESETS.find(p=>p.name===v);
-                        upRI(idx,{itemName:v,itemId:f?.id??'',pricePerItem:f?String(f.rentalPrice):preset?preset.rentalPrice:'',venue:f?.venue??VENUES[0]});
+                        upRI(idx,{itemName:v,itemId:f?.id??'',pricePerItem:f?String(f.rentalPrice):'',venue:f?.venue??VENUES[0]});
                       }} isDark={isDark}/>
                     {selItem&&(
                       <View style={{flexDirection:'row',gap:8,marginBottom:8,flexWrap:'wrap'}}>

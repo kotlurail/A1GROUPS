@@ -1,18 +1,19 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
-  StyleSheet, Platform, Alert, Dimensions, SafeAreaView, KeyboardAvoidingView,
+  StyleSheet, Platform, Alert, SafeAreaView,
   StatusBar, Image,
 } from 'react-native';
 import { useColorScheme } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { eventsApi, uploadApi } from '../../lib/api';
+import ImageViewer from '../../lib/ImageViewer';
 
 let ImagePicker: any = null;
 try { ImagePicker = require('expo-image-picker'); } catch {}
 
-const W = Dimensions.get('window').width;
+
 const TODAY = '2026-05-15';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -193,7 +194,7 @@ function DF({label,value,onChange,isDark}:{label:string;value:string;onChange(v:
 // ─── Image Carousel ───────────────────────────────────────────────────────────
 function ImageCarousel({images,onAdd,onRemove,isDark,uploading}:{images:string[];onAdd():void;onRemove(i:number):void;isDark:boolean;uploading?:boolean}) {
   const [idx,setIdx]=useState(0);
-  const [preview,setPreview]=useState<string|null>(null);
+  const [fullImgIdx,setFullImgIdx]=useState<number|null>(null);
   const t=isDark?DK:LT;
   const cur=Math.min(idx,Math.max(0,images.length-1));
 
@@ -219,8 +220,8 @@ function ImageCarousel({images,onAdd,onRemove,isDark,uploading}:{images:string[]
   return (
     <>
       <View style={[s.carWrap,{borderColor:t.border}]}>
-        <TouchableOpacity activeOpacity={0.9} onPress={()=>setPreview(images[cur])}>
-          <Image source={{uri:images[cur]}} style={s.carMain} resizeMode="cover"/>
+        <TouchableOpacity activeOpacity={0.9} onPress={()=>setFullImgIdx(cur)}>
+          <Image source={{uri:images[cur]}} style={s.carMain} resizeMode="contain"/>
         </TouchableOpacity>
         {/* Delete current */}
         <TouchableOpacity style={s.carDel} onPress={()=>handleRemove(cur)}>
@@ -261,18 +262,19 @@ function ImageCarousel({images,onAdd,onRemove,isDark,uploading}:{images:string[]
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop:7,marginBottom:10}}>
           {images.map((uri,i)=>(
             <TouchableOpacity key={i} onPress={()=>setIdx(i)} style={{marginRight:6}}>
-              <Image source={{uri}} style={[s.carThumb,{borderWidth:i===cur?2:0,borderColor:t.accent,opacity:i===cur?1:0.55}]} resizeMode="cover"/>
+              <Image source={{uri}} style={[s.carThumb,{borderWidth:i===cur?2:0,borderColor:t.accent,opacity:i===cur?1:0.55}]} resizeMode="contain"/>
             </TouchableOpacity>
           ))}
         </ScrollView>
       )}
-      {/* Full-screen preview */}
-      <Modal visible={!!preview} transparent animationType="fade" onRequestClose={()=>setPreview(null)}>
-        <TouchableOpacity style={{flex:1,backgroundColor:'#000d',alignItems:'center',justifyContent:'center'}} onPress={()=>setPreview(null)}>
-          {preview&&<Image source={{uri:preview}} style={{width:W,height:W*1.2,resizeMode:'contain'}}/>}
-          <Text style={{color:'#fff',marginTop:12,fontSize:13}}>Tap to close</Text>
-        </TouchableOpacity>
-      </Modal>
+      {/* Full-screen viewer */}
+      {fullImgIdx !== null && (
+        <ImageViewer
+          images={images}
+          initialIndex={fullImgIdx}
+          onClose={() => setFullImgIdx(null)}
+        />
+      )}
     </>
   );
 }
@@ -481,7 +483,7 @@ function EventCard({event,onView,onEdit,onDelete,onPrint,isDark}:{
   const col=typeColor[event.eventType]??t.accent;
   return (
     <View style={[s.eCard,{backgroundColor:t.card,borderColor:t.border}]}>
-      {firstImg&&<Image source={{uri:firstImg}} style={s.eCardThumb} resizeMode="cover"/>}
+      {firstImg&&<Image source={{uri:firstImg}} style={s.eCardThumb} resizeMode="contain"/>}
       <View style={[s.eCardBadge,{backgroundColor:col+'20',borderColor:col+'40'}]}>
         <Text style={{color:col,fontSize:10,fontWeight:'700'}}>{event.eventType}</Text>
       </View>
@@ -903,7 +905,7 @@ const s=StyleSheet.create({
   searchBox:    {padding:10,borderRadius:9,borderWidth:1,fontSize:14},
   fChip:        {paddingHorizontal:12,paddingVertical:5,borderRadius:16,borderWidth:1,marginRight:7},
   eCard:        {borderRadius:14,borderWidth:1,marginBottom:14,overflow:'hidden'},
-  eCardThumb:   {width:'100%',height:140},
+  eCardThumb:   {width:'100%',height:140,backgroundColor:'#1a1a2e'},
   eCardBadge:   {position:'absolute',top:8,right:8,paddingHorizontal:9,paddingVertical:3,borderRadius:8,borderWidth:1},
   cardBtn:      {paddingVertical:8,borderRadius:8,borderWidth:1,alignItems:'center'},
   detailBar:    {flexDirection:'row',alignItems:'center',padding:12,borderBottomWidth:1},
@@ -939,7 +941,7 @@ const s=StyleSheet.create({
   saveBtn:      {padding:14,borderRadius:10,alignItems:'center'},
   saveTxt:      {color:'#fff',fontWeight:'700',fontSize:15},
   carWrap:      {borderRadius:12,borderWidth:1,overflow:'hidden',marginBottom:6,position:'relative'},
-  carMain:      {width:'100%',height:200},
+  carMain:      {width:'100%',height:220,backgroundColor:'#1a1a2e'},
   carEmpty:     {height:100,borderRadius:12,borderWidth:2,borderStyle:'dashed',alignItems:'center',justifyContent:'center',marginBottom:12},
   carDel:       {position:'absolute',top:8,right:8,width:32,height:32,borderRadius:16,backgroundColor:'#e74c3ccc',alignItems:'center',justifyContent:'center'},
   carCounter:   {position:'absolute',top:8,left:8,backgroundColor:'#00000070',paddingHorizontal:8,paddingVertical:3,borderRadius:10},
@@ -947,5 +949,5 @@ const s=StyleSheet.create({
   carArrow:     {position:'absolute',top:0,bottom:0,width:36,alignItems:'center',justifyContent:'center',backgroundColor:'#00000030'},
   carDots:      {position:'absolute',bottom:10,left:0,right:0,flexDirection:'row',justifyContent:'center',alignItems:'center',gap:5},
   carDot:       {height:6,borderRadius:3,backgroundColor:'#fff'},
-  carThumb:     {width:52,height:52,borderRadius:8},
+  carThumb:     {width:52,height:52,borderRadius:8,backgroundColor:'#1a1a2e'},
 });

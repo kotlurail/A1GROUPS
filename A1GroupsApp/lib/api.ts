@@ -9,7 +9,7 @@
 import { Platform } from 'react-native';
 import { getToken } from './auth';
 
-const _configuredUrl = (globalThis as any).process?.env?.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
+const _configuredUrl = (globalThis as any).process?.env?.EXPO_PUBLIC_API_URL ?? 'https://a1groups.onrender.com';
 
 // Android emulator cannot reach host's localhost — remap automatically
 export const BASE_URL =

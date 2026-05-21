@@ -546,12 +546,10 @@ export default function AccountsScreen() {
     }
   }, []);
 
-  useEffect(() => { loadTxs(); }, [loadTxs]);
+  // Load both on mount — feed drives the dashboard, txs drives the manual edit list
+  useEffect(() => { loadTxs(); loadFeed(); }, [loadTxs, loadFeed]);
 
-  useEffect(() => {
-    if (viewMode === 'feed') loadFeed();
-  }, [viewMode, loadFeed]);
-
+  // ── Manual transactions list (for the editable Manual tab) ────────────────
   const filtered = useMemo(() => txs.filter(tx => {
     const pOk = isInPeriod(tx.date, period, TODAY);
     const vOk = venue === 'All Venues' || tx.venue === venue;
@@ -560,17 +558,27 @@ export default function AccountsScreen() {
     return pOk && vOk && tOk && sOk;
   }), [txs, period, venue, typeF, search]);
 
-  const totalIncome  = filtered.filter(x => x.type === 'income').reduce((a, x) => a + x.amount, 0);
-  const totalExpense = filtered.filter(x => x.type === 'expense').reduce((a, x) => a + x.amount, 0);
+  // ── All-sources feed filtered for the dashboard (period + venue + typeF) ──
+  const filteredFeed = useMemo(() => feedItems.filter(item => {
+    const pOk = isInPeriod(item.date, period, TODAY);
+    const vOk = venue === 'All Venues' || item.venue === venue;
+    const tOk = typeF === 'All' || (typeF === 'Income' ? item.type === 'income' : item.type === 'expense');
+    return pOk && vOk && tOk;
+  }), [feedItems, period, venue, typeF]);
+
+  // ── Summary card numbers — driven by ALL sources via filteredFeed ─────────
+  const totalIncome  = filteredFeed.filter(x => x.type === 'income').reduce((a, x) => a + x.amount, 0);
+  const totalExpense = filteredFeed.filter(x => x.type === 'expense').reduce((a, x) => a + x.amount, 0);
   const balance      = totalIncome - totalExpense;
-  const pendingAmt   = txs.filter(x => x.status === 'pending').reduce((a, x) => a + x.amount, 0);
-  const monthlyInc   = txs.filter(x => isInPeriod(x.date, 'Monthly', TODAY) && x.type === 'income').reduce((a, x) => a + x.amount, 0);
-  const yearlyInc    = txs.filter(x => isInPeriod(x.date, 'Yearly', TODAY) && x.type === 'income').reduce((a, x) => a + x.amount, 0);
+  const pendingAmt   = feedItems.filter(x => x.status === 'pending').reduce((a, x) => a + x.amount, 0);
+  const monthlyInc   = feedItems.filter(x => isInPeriod(x.date, 'Monthly', TODAY) && x.type === 'income').reduce((a, x) => a + x.amount, 0);
+  const yearlyInc    = feedItems.filter(x => isInPeriod(x.date, 'Yearly', TODAY) && x.type === 'income').reduce((a, x) => a + x.amount, 0);
 
   const MONTHS6  = last6Months();
   const YMS      = MONTHS6.map(m => m.ym);
   const LBLS     = MONTHS6.map(m => m.label);
-  const mAmt = (ym: string, tp: TxType) => txs.filter(x => x.date.startsWith(ym) && x.type === tp).reduce((a, x) => a + x.amount, 0);
+  // Sparklines and bar chart driven by all-sources feed
+  const mAmt = (ym: string, tp: TxType) => feedItems.filter(x => x.date.startsWith(ym) && x.type === tp).reduce((a, x) => a + x.amount, 0);
   const incSpark = YMS.map(ym => mAmt(ym, 'income'));
   const expSpark = YMS.map(ym => mAmt(ym, 'expense'));
   const ML_FULL  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -578,20 +586,22 @@ export default function AccountsScreen() {
   const monthTrend = ML_FULL[_now.getMonth()] + ' ' + _now.getFullYear();
   const yearTrend  = 'FY ' + _now.getFullYear();
 
+  // Venue stats from all sources
   const venueStats = VENUES.map(v => ({
     v,
-    inc: filtered.filter(x => x.venue === v && x.type === 'income').reduce((a, x) => a + x.amount, 0),
-    exp: filtered.filter(x => x.venue === v && x.type === 'expense').reduce((a, x) => a + x.amount, 0),
+    inc: filteredFeed.filter(x => x.venue === v && x.type === 'income').reduce((a, x) => a + x.amount, 0),
+    exp: filteredFeed.filter(x => x.venue === v && x.type === 'expense').reduce((a, x) => a + x.amount, 0),
   }));
   const maxVenue = Math.max(...venueStats.map(v => v.inc), 1);
 
-  const expCats = [...new Set(filtered.filter(x => x.type === 'expense').map(x => x.category))]
-    .map(c => ({ c, a: filtered.filter(x => x.category === c && x.type === 'expense').reduce((a, x) => a + x.amount, 0) }))
+  // Category breakdowns from all sources
+  const expCats = [...new Set(filteredFeed.filter(x => x.type === 'expense').map(x => x.category))]
+    .map(c => ({ c, a: filteredFeed.filter(x => x.category === c && x.type === 'expense').reduce((a, x) => a + x.amount, 0) }))
     .sort((a, b) => b.a - a.a).slice(0, 6);
   const maxExpCat = Math.max(...expCats.map(c => c.a), 1);
 
-  const incCats = [...new Set(filtered.filter(x => x.type === 'income').map(x => x.category))]
-    .map(c => ({ c, a: filtered.filter(x => x.category === c && x.type === 'income').reduce((a, x) => a + x.amount, 0) }))
+  const incCats = [...new Set(filteredFeed.filter(x => x.type === 'income').map(x => x.category))]
+    .map(c => ({ c, a: filteredFeed.filter(x => x.category === c && x.type === 'income').reduce((a, x) => a + x.amount, 0) }))
     .sort((a, b) => b.a - a.a).slice(0, 6);
   const maxIncCat = Math.max(...incCats.map(c => c.a), 1);
 
@@ -666,9 +676,10 @@ export default function AccountsScreen() {
     }
   }, [filtered, sortKey]);
 
-  if (loading) return (
+  if (loading || feedLoading) return (
     <SafeAreaView style={[s.safe, { backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }]}>
-      <Text style={{ color: t.sub, fontSize: 15 }}>Loading transactions...</Text>
+      <Text style={{ fontSize: 36, marginBottom: 12 }}>💰</Text>
+      <Text style={{ color: t.sub, fontSize: 15 }}>Loading financial data...</Text>
     </SafeAreaView>
   );
 
@@ -681,7 +692,9 @@ export default function AccountsScreen() {
         <View style={[s.header, { backgroundColor: t.card, borderBottomColor: t.border }]}>
           <View>
             <Text style={[s.headerTitle, { color: t.text }]}>Accounts</Text>
-            <Text style={{ color: t.sub, fontSize: 12 }}>Financial Management</Text>
+            <Text style={{ color: t.sub, fontSize: 12 }}>
+              {feedItems.length > 0 ? `${feedItems.length} entries · All Sources` : 'Financial Management'}
+            </Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity style={[s.iconBtn, { backgroundColor: isDark ? '#ffffff15' : '#6C63FF15' }]} onPress={() => setIsDark(!isDark)}>
@@ -858,7 +871,7 @@ export default function AccountsScreen() {
               />
               <TouchableOpacity
                 style={[s.sortBtn, { backgroundColor: t.card, borderColor: t.border }]}
-                onPress={loadFeed}
+                onPress={() => { loadFeed(); loadTxs(); }}
               >
                 <Text style={{ color: t.text, fontSize: 15 }}>{feedLoading ? '⏳' : '↻'}</Text>
               </TouchableOpacity>

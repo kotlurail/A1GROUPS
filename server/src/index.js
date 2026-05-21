@@ -12,13 +12,13 @@ const uploadRoutes      = require('./routes/upload');
 const employeeRoutes    = require('./routes/employees');
 const decorRoutes       = require('./routes/decors');
 const bookingRoutes     = require('./routes/bookings');
+const accountRoutes     = require('./routes/accounts');
 const authRoutes        = require('./routes/auth');
 const requireAuth       = require('./middleware/auth');
 
 const app = express();
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? '')
-  .split(',')
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:8081').split(',')
   .map(o => o.trim())
   .filter(Boolean);
 
@@ -48,6 +48,7 @@ app.use('/api/upload',       requireAuth, uploadRoutes);
 app.use('/api/employees',    requireAuth, employeeRoutes);
 app.use('/api/decors',       requireAuth, decorRoutes);
 app.use('/api/bookings',     requireAuth, bookingRoutes);
+app.use('/api/accounts',    requireAuth, accountRoutes);
 
 app.get('/', (_req, res) => res.json({ status: 'A1 Groups API running' }));
 

@@ -9,7 +9,7 @@
 import { Platform } from 'react-native';
 import { getToken } from './auth';
 
-const _configuredUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
+const _configuredUrl = (globalThis as any).process?.env?.EXPO_PUBLIC_API_URL ?? 'http://localhost:5000';
 
 // Android emulator cannot reach host's localhost — remap automatically
 export const BASE_URL =
@@ -338,6 +338,31 @@ export const decorsApi = {
   create: (body: Omit<DecorDoc, '_id' | 'createdAt'>) => post<DecorDoc>('/api/decors', body),
   update: (id: string, body: Partial<Omit<DecorDoc, '_id' | 'createdAt'>>) => put<DecorDoc>(`/api/decors/${id}`, body),
   remove: (id: string) => del<{ message: string }>(`/api/decors/${id}`),
+};
+
+// ─── Accounts Feed API ────────────────────────────────────────────────────────
+
+export interface FeedItem {
+  id:            string;
+  source:        'Bookings' | 'Decors' | 'Employees' | 'Rentals' | 'Manual';
+  type:          'income' | 'expense';
+  amount:        number;
+  category:      string;
+  reference:     string;
+  venue:         string;
+  date:          string;
+  paymentMethod: string;
+  status:        'completed' | 'pending' | 'cancelled';
+  note:          string;
+}
+
+export const accountsApi = {
+  getFeed: (params?: { from?: string; to?: string; type?: string; source?: string }) => {
+    const q = new URLSearchParams(
+      Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null && v !== '')) as Record<string, string>
+    ).toString();
+    return get<FeedItem[]>(`/api/accounts/feed${q ? '?' + q : ''}`);
+  },
 };
 
 // ─── Image Upload API ──────────────────────────────────────────────────────────

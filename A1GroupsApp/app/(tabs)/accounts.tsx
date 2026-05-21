@@ -6,7 +6,7 @@ import {
 import { useColorScheme } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { transactionsApi } from '../../lib/api';
+import { transactionsApi, accountsApi, FeedItem } from '../../lib/api';
 
 const W = Dimensions.get('window').width;
 
@@ -404,6 +404,54 @@ function DetailModal({ tx, onClose, onEdit, onDelete, isDark }: {
   );
 }
 
+// ─── Source colors ────────────────────────────────────────────────────────────
+const SOURCE_COLORS: Record<string, string> = {
+  Bookings:  '#3498db',
+  Decors:    '#9b59b6',
+  Employees: '#e67e22',
+  Rentals:   '#1abc9c',
+  Manual:    '#6C63FF',
+};
+
+// ─── FeedRow ──────────────────────────────────────────────────────────────────
+function FeedRow({ item, isDark }: { item: FeedItem; isDark: boolean }) {
+  const t   = isDark ? dark : light;
+  const inc = item.type === 'income';
+  const sc: Record<string, string> = { completed: '#27ae60', pending: '#f39c12', cancelled: '#e74c3c' };
+  const srcColor = SOURCE_COLORS[item.source] ?? '#888';
+  return (
+    <View style={[s.txRow, { backgroundColor: t.card, borderColor: t.border }]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <View style={[s.txBadge, { backgroundColor: srcColor + '20' }]}>
+          <Text style={{ color: srcColor, fontSize: 10, fontWeight: '700' }}>{item.source.toUpperCase()}</Text>
+        </View>
+        <View style={[s.txBadge, { backgroundColor: inc ? '#27ae6020' : '#e74c3c20', marginLeft: 4 }]}>
+          <Text style={{ color: inc ? '#27ae60' : '#e74c3c', fontSize: 10, fontWeight: '700' }}>{inc ? '+INC' : '-EXP'}</Text>
+        </View>
+        <Text style={[s.txCat, { color: t.text, marginLeft: 6 }]} numberOfLines={1}>{item.category}</Text>
+        <View style={{ flex: 1 }} />
+        <Text style={{ color: inc ? '#27ae60' : '#e74c3c', fontSize: 14, fontWeight: '800' }}>
+          {inc ? '+' : '-'}{fmt(item.amount)}
+        </Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 2, marginBottom: 4 }}>
+        {!!item.reference && <Text style={{ color: t.text, fontSize: 12, fontWeight: '600' }}>{item.reference}</Text>}
+        {!!item.reference && <Text style={{ color: t.border }}> • </Text>}
+        {!!item.venue && <Text style={{ color: t.sub, fontSize: 11 }} numberOfLines={1}>{item.venue}</Text>}
+        {!!item.venue && <Text style={{ color: t.border }}> • </Text>}
+        <Text style={{ color: t.sub, fontSize: 11 }}>{item.date}</Text>
+        <View style={{ flex: 1 }} />
+        <View style={[s.txStatus, { backgroundColor: (sc[item.status] ?? '#888') + '20' }]}>
+          <Text style={{ color: sc[item.status] ?? '#888', fontSize: 10, fontWeight: '600' }}>
+            {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+          </Text>
+        </View>
+      </View>
+      {!!item.note && <Text style={{ color: t.sub, fontSize: 11 }} numberOfLines={1}>{item.note}</Text>}
+    </View>
+  );
+}
+
 // ─── SortModal ────────────────────────────────────────────────────────────────
 function SortModal({ visible, current, onSelect, onClose, isDark }: {
   visible: boolean; current: SortKey; onSelect(k: SortKey): void; onClose(): void; isDark: boolean;
@@ -467,6 +515,14 @@ export default function AccountsScreen() {
   const [sortKey, setSortKey]   = useState<SortKey>('date-desc');
   const [showSort, setShowSort] = useState(false);
 
+  // ── Activity Feed ──────────────────────────────────────────────────────────
+  type ViewMode = 'manual' | 'feed';
+  const [viewMode, setViewMode]         = useState<ViewMode>('manual');
+  const [feedItems, setFeedItems]       = useState<FeedItem[]>([]);
+  const [feedLoading, setFeedLoading]   = useState(false);
+  const [feedSource, setFeedSource]     = useState<string>('All');
+  const [feedSearch, setFeedSearch]     = useState('');
+
   const loadTxs = useCallback(async () => {
     try {
       const data = await transactionsApi.getAll();
@@ -478,7 +534,23 @@ export default function AccountsScreen() {
     }
   }, []);
 
+  const loadFeed = useCallback(async () => {
+    setFeedLoading(true);
+    try {
+      const data = await accountsApi.getFeed();
+      setFeedItems(data);
+    } catch (e: any) {
+      Alert.alert('Error', 'Could not load activity feed: ' + e.message);
+    } finally {
+      setFeedLoading(false);
+    }
+  }, []);
+
   useEffect(() => { loadTxs(); }, [loadTxs]);
+
+  useEffect(() => {
+    if (viewMode === 'feed') loadFeed();
+  }, [viewMode, loadFeed]);
 
   const filtered = useMemo(() => txs.filter(tx => {
     const pOk = isInPeriod(tx.date, period, TODAY);
@@ -701,44 +773,133 @@ export default function AccountsScreen() {
           ))}
         </ScrollView>
 
-        {/* Transactions */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginTop: 8, marginBottom: 8 }}>
-          <Text style={[s.sectionTitle, { color: t.text, marginBottom: 0, paddingHorizontal: 0, flex: 1 }]}>Transactions ({filtered.length})</Text>
+        {/* Transactions / Activity Feed toggle */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginTop: 8, marginBottom: 10, gap: 8 }}>
           <TouchableOpacity
-            style={[s.sortBtn, { backgroundColor: sortKey !== 'date-desc' ? '#6C63FF' : t.card, borderColor: sortKey !== 'date-desc' ? '#6C63FF' : t.border }]}
-            onPress={() => setShowSort(true)}
+            style={[s.typeChip, { backgroundColor: viewMode === 'manual' ? '#6C63FF' : t.card, borderColor: viewMode === 'manual' ? '#6C63FF' : t.border }]}
+            onPress={() => setViewMode('manual')}
           >
-            <Text style={{ fontSize: 15, color: sortKey !== 'date-desc' ? '#fff' : t.text }}>⇅ Sort</Text>
+            <Text style={{ color: viewMode === 'manual' ? '#fff' : t.text, fontWeight: '700', fontSize: 13 }}>📋 Manual</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.typeChip, { backgroundColor: viewMode === 'feed' ? '#6C63FF' : t.card, borderColor: viewMode === 'feed' ? '#6C63FF' : t.border }]}
+            onPress={() => setViewMode('feed')}
+          >
+            <Text style={{ color: viewMode === 'feed' ? '#fff' : t.text, fontWeight: '700', fontSize: 13 }}>🔄 All Activity</Text>
           </TouchableOpacity>
         </View>
-        {sortKey !== 'date-desc' && (
-          <View style={{ paddingHorizontal: 16, marginBottom: 6 }}>
-            <Text style={{ color: '#6C63FF', fontSize: 12 }}>
-              {SORT_OPTIONS.find(o => o.key === sortKey)?.icon} {SORT_OPTIONS.find(o => o.key === sortKey)?.label}
-            </Text>
-          </View>
-        )}
-        <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
-          <TextInput
-            style={[s.searchBox, { backgroundColor: t.card, borderColor: t.border, color: t.text }]}
-            value={search} onChangeText={setSearch}
-            placeholder="Search by category, venue, notes..." placeholderTextColor={t.sub}
-          />
-        </View>
 
-        {sorted.length === 0 ? (
-          <View style={{ alignItems: 'center', padding: 32 }}>
-            <Text style={{ fontSize: 40 }}>📂</Text>
-            <Text style={{ color: t.sub, marginTop: 8 }}>No transactions found</Text>
-          </View>
-        ) : sorted.map(tx => (
-          <TxRow key={tx.id} tx={tx} isDark={isDark}
-            onView={() => setViewTx(tx)}
-            onEdit={() => openEdit(tx)}
-            onDelete={() => handleDelete(tx.id)}
-            onPrint={() => handlePrint(tx)}
-          />
-        ))}
+        {viewMode === 'manual' ? (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 }}>
+              <Text style={[s.sectionTitle, { color: t.text, marginBottom: 0, paddingHorizontal: 0, flex: 1 }]}>
+                Transactions ({filtered.length})
+              </Text>
+              <TouchableOpacity
+                style={[s.sortBtn, { backgroundColor: sortKey !== 'date-desc' ? '#6C63FF' : t.card, borderColor: sortKey !== 'date-desc' ? '#6C63FF' : t.border }]}
+                onPress={() => setShowSort(true)}
+              >
+                <Text style={{ fontSize: 15, color: sortKey !== 'date-desc' ? '#fff' : t.text }}>⇅ Sort</Text>
+              </TouchableOpacity>
+            </View>
+            {sortKey !== 'date-desc' && (
+              <View style={{ paddingHorizontal: 16, marginBottom: 6 }}>
+                <Text style={{ color: '#6C63FF', fontSize: 12 }}>
+                  {SORT_OPTIONS.find(o => o.key === sortKey)?.icon} {SORT_OPTIONS.find(o => o.key === sortKey)?.label}
+                </Text>
+              </View>
+            )}
+            <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
+              <TextInput
+                style={[s.searchBox, { backgroundColor: t.card, borderColor: t.border, color: t.text }]}
+                value={search} onChangeText={setSearch}
+                placeholder="Search by category, venue, notes..." placeholderTextColor={t.sub}
+              />
+            </View>
+            {sorted.length === 0 ? (
+              <View style={{ alignItems: 'center', padding: 32 }}>
+                <Text style={{ fontSize: 40 }}>📂</Text>
+                <Text style={{ color: t.sub, marginTop: 8 }}>No transactions found</Text>
+              </View>
+            ) : sorted.map(tx => (
+              <TxRow key={tx.id} tx={tx} isDark={isDark}
+                onView={() => setViewTx(tx)}
+                onEdit={() => openEdit(tx)}
+                onDelete={() => handleDelete(tx.id)}
+                onPrint={() => handlePrint(tx)}
+              />
+            ))}
+          </>
+        ) : (
+          <>
+            {/* Source filter chips */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+              {['All', 'Bookings', 'Decors', 'Employees', 'Rentals', 'Manual'].map(src => {
+                const active = feedSource === src;
+                const col    = src === 'All' ? '#6C63FF' : SOURCE_COLORS[src] ?? '#6C63FF';
+                return (
+                  <TouchableOpacity
+                    key={src}
+                    style={[s.venueChip, { backgroundColor: active ? col + '20' : 'transparent', borderColor: active ? col : t.border }]}
+                    onPress={() => setFeedSource(src)}
+                  >
+                    <Text style={{ color: active ? col : t.sub, fontSize: 12, fontWeight: active ? '700' : '400' }}>{src}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Feed search + refresh */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 10, flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                style={[s.searchBox, { backgroundColor: t.card, borderColor: t.border, color: t.text, flex: 1 }]}
+                value={feedSearch} onChangeText={setFeedSearch}
+                placeholder="Search by name, category, notes..." placeholderTextColor={t.sub}
+              />
+              <TouchableOpacity
+                style={[s.sortBtn, { backgroundColor: t.card, borderColor: t.border }]}
+                onPress={loadFeed}
+              >
+                <Text style={{ color: t.text, fontSize: 15 }}>{feedLoading ? '⏳' : '↻'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Feed count */}
+            {(() => {
+              const displayFeed = feedItems.filter(item => {
+                const srcOk  = feedSource === 'All' || item.source === feedSource;
+                const typeOk = typeF === 'All' || (typeF === 'Income' ? item.type === 'income' : item.type === 'expense');
+                const periodOk = isInPeriod(item.date, period, TODAY);
+                const searchOk = !feedSearch || [item.category, item.reference, item.venue, item.note].some(
+                  f => f?.toLowerCase().includes(feedSearch.toLowerCase())
+                );
+                return srcOk && typeOk && periodOk && searchOk;
+              });
+              return (
+                <>
+                  <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+                    <Text style={{ color: t.sub, fontSize: 12 }}>
+                      {displayFeed.length} entries
+                      {feedSource !== 'All' ? ` · ${feedSource}` : ' · All Sources'}
+                    </Text>
+                  </View>
+                  {feedLoading ? (
+                    <View style={{ alignItems: 'center', padding: 32 }}>
+                      <Text style={{ color: t.sub }}>Loading activity...</Text>
+                    </View>
+                  ) : displayFeed.length === 0 ? (
+                    <View style={{ alignItems: 'center', padding: 32 }}>
+                      <Text style={{ fontSize: 40 }}>📭</Text>
+                      <Text style={{ color: t.sub, marginTop: 8 }}>No activity found</Text>
+                    </View>
+                  ) : displayFeed.map(item => (
+                    <FeedRow key={item.id} item={item} isDark={isDark} />
+                  ))}
+                </>
+              );
+            })()}
+          </>
+        )}
 
       </ScrollView>
 

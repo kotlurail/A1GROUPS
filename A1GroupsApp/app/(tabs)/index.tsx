@@ -134,8 +134,8 @@ const emptyIF = (): InvForm => ({
 });
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
-const LT = {bg:'#f0f4ff', card:'#ffffff', text:'#1a1a2e', sub:'#6b7280', border:'#e2e8f0', nav:'#ffffff'};
-const DK = {bg:'#0d1117', card:'#161b22', text:'#e6edf3', sub:'#8b949e', border:'#30363d', nav:'#161b22'};
+const LT = {bg:'#F4F6FB', card:'#FFFFFF', text:'#111827', sub:'#6B7280', border:'#E5E7EB', nav:'#FFFFFF', input:'#F9FAFB'};
+const DK = {bg:'#0D1117', card:'#161B22', text:'#E6EDF3', sub:'#8B949E', border:'#30363D', nav:'#161B22', input:'#0D1117'};
 
 // ─── SelectField ──────────────────────────────────────────────────────────────
 function Sel({label,value,options,onChange,isDark,ph}:{label?:string;value:string;options:string[];onChange(v:string):void;isDark:boolean;ph?:string}) {
@@ -1226,12 +1226,12 @@ export default function RentalScreen() {
       <StatusBar barStyle={isDark?'light-content':'dark-content'}/>
       {/* Header */}
       <View style={[ss.header,{backgroundColor:t.card,borderBottomColor:t.border}]}>
-        <View>
+        <View style={{flex:1}}>
           <Text style={[ss.headerTitle,{color:t.text}]}>Rental Inventory</Text>
-          <Text style={{color:t.sub,fontSize:11}}>A1 Groups Event Management</Text>
+          <Text style={{color:t.sub,fontSize:11,fontWeight:'500',marginTop:1}}>A1 Groups · Event Management</Text>
         </View>
-        <TouchableOpacity style={[ss.darkBtn,{backgroundColor:isDark?'#ffffff15':'#6C63FF15'}]} onPress={()=>setIsDark(!isDark)}>
-          <Text>{isDark?'☀️':'🌙'}</Text>
+        <TouchableOpacity style={[ss.darkBtn,{backgroundColor:isDark?'#ffffff12':'#6C63FF12'}]} onPress={()=>setIsDark(!isDark)}>
+          <Text style={{fontSize:16}}>{isDark?'☀️':'🌙'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1247,9 +1247,10 @@ export default function RentalScreen() {
       <View style={[ss.nav,{backgroundColor:t.nav,borderTopColor:t.border}]}>
         {tabs.map(([v,icon,label])=>(
           <TouchableOpacity key={v} style={ss.navItem} onPress={()=>setView(v)}>
-            <Text style={{fontSize:20}}>{icon}</Text>
-            <Text style={{color:view===v?'#6C63FF':t.sub,fontSize:10,fontWeight:view===v?'700':'400',marginTop:2}}>{label}</Text>
-            {view===v&&<View style={{position:'absolute',bottom:-1,width:24,height:3,backgroundColor:'#6C63FF',borderRadius:2}}/>}
+            <View style={{width:40,height:28,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:view===v?'#6C63FF1A':'transparent'}}>
+              <Text style={{fontSize:18}}>{icon}</Text>
+            </View>
+            <Text style={{color:view===v?'#6C63FF':t.sub,fontSize:10,fontWeight:view===v?'700':'500',marginTop:3,letterSpacing:0.1}}>{label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -1265,48 +1266,48 @@ export default function RentalScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const ss=StyleSheet.create({
   safe:         {flex:1},
-  header:       {flexDirection:'row',alignItems:'center',padding:14,borderBottomWidth:1},
-  headerTitle:  {fontSize:20,fontWeight:'800'},
-  darkBtn:      {padding:8,borderRadius:8},
-  nav:          {flexDirection:'row',borderTopWidth:1,paddingBottom:Platform.OS==='ios'?16:4,paddingTop:6},
+  header:       {flexDirection:'row',alignItems:'center',paddingHorizontal:18,paddingVertical:14,borderBottomWidth:1},
+  headerTitle:  {fontSize:22,fontWeight:'800',letterSpacing:-0.3},
+  darkBtn:      {width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center'},
+  nav:          {flexDirection:'row',borderTopWidth:1,paddingBottom:Platform.OS==='ios'?20:6,paddingTop:8},
   navItem:      {flex:1,alignItems:'center',paddingVertical:4,position:'relative'},
-  grid:         {flexDirection:'row',flexWrap:'wrap',padding:12,gap:8},
-  sCard:        {width:(W-48)/2,padding:12,borderRadius:12,borderWidth:1},
-  sIcon:        {width:34,height:34,borderRadius:10,alignItems:'center',justifyContent:'center',marginBottom:6},
-  sTitle:       {fontSize:11,marginBottom:2},
-  sVal:         {fontSize:16,fontWeight:'800'},
-  quickAdd:     {marginHorizontal:14,marginBottom:14,padding:14,borderRadius:12,alignItems:'center'},
-  chartCard:    {marginHorizontal:14,marginBottom:12,padding:14,borderRadius:12,borderWidth:1},
-  chartTitle:   {fontSize:14,fontWeight:'700',marginBottom:12},
-  miniCard:     {padding:10,borderRadius:9,borderWidth:1,marginBottom:8},
-  secTitle:     {fontSize:15,fontWeight:'700',marginBottom:10,paddingHorizontal:0},
-  venueStockCard:{padding:14,borderRadius:12,borderWidth:1,marginBottom:10},
-  stockItemRow: {flexDirection:'row',alignItems:'center',padding:12,borderRadius:10,borderWidth:1,marginBottom:8},
-  invCard:      {padding:14,borderRadius:12,borderWidth:1,marginBottom:10},
-  invStat:      {flex:1,padding:10,borderRadius:9,borderWidth:1},
-  rentalCard:   {padding:13,borderRadius:12,borderWidth:1,marginBottom:10},
-  fChip:        {paddingHorizontal:12,paddingVertical:5,borderRadius:16,borderWidth:1,marginRight:7},
-  searchBox:    {padding:10,borderRadius:9,borderWidth:1,fontSize:14},
-  sortBtn:      {paddingHorizontal:12,paddingVertical:10,borderRadius:9,borderWidth:1,alignItems:'center',justifyContent:'center'},
-  rowBtn:       {paddingHorizontal:10,paddingVertical:6,borderRadius:7,borderWidth:1,alignItems:'center'},
-  overlay:      {flex:1,backgroundColor:'#00000080',justifyContent:'flex-end'},
-  sheet:        {maxHeight:'92%',borderTopLeftRadius:20,borderTopRightRadius:20,padding:18},
-  sheetTitle:   {fontSize:18,fontWeight:'700'},
-  secHead:      {fontSize:13,fontWeight:'700',paddingBottom:10,borderBottomWidth:1,marginBottom:12},
-  label:        {fontSize:12,fontWeight:'600',marginBottom:5},
-  trigger:      {flexDirection:'row',alignItems:'center',padding:11,borderRadius:8,borderWidth:1,marginBottom:0},
-  selPanel:     {margin:20,borderRadius:12,borderWidth:1,padding:12},
-  selSearch:    {padding:9,borderRadius:8,borderWidth:1,marginBottom:8},
-  selOpt:       {padding:12,borderRadius:6},
-  inp:          {padding:11,borderRadius:8,borderWidth:1,marginBottom:10,fontSize:14},
-  itemRow:      {padding:12,borderRadius:10,borderWidth:1,marginBottom:10},
-  addItemBtn:   {padding:12,borderRadius:9,borderWidth:1.5,alignItems:'center',marginBottom:12},
-  totalBox:     {padding:14,borderRadius:10,borderWidth:1,alignItems:'center',marginBottom:12},
-  saveBtn:      {padding:14,borderRadius:10,alignItems:'center'},
-  saveTxt:      {color:'#fff',fontWeight:'700',fontSize:15},
-  detailBlock:  {padding:16,borderRadius:12,borderWidth:1,alignItems:'center',marginBottom:12},
-  detRow:       {flexDirection:'row',paddingVertical:10,borderBottomWidth:1},
-  viewItemRow:  {padding:12,borderRadius:9,borderWidth:1,marginBottom:8},
-  actBtn:       {flex:1,padding:11,borderRadius:8,alignItems:'center'},
-  actTxt:       {color:'#fff',fontWeight:'600',fontSize:13},
+  grid:         {flexDirection:'row',flexWrap:'wrap',padding:14,gap:10},
+  sCard:        {width:(W-52)/2,padding:14,borderRadius:16,borderWidth:1,shadowColor:'#000',shadowOffset:{width:0,height:2},shadowOpacity:0.05,shadowRadius:8,elevation:2},
+  sIcon:        {width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center',marginBottom:8},
+  sTitle:       {fontSize:11,fontWeight:'600',letterSpacing:0.2,marginBottom:3},
+  sVal:         {fontSize:18,fontWeight:'800',letterSpacing:-0.3},
+  quickAdd:     {marginHorizontal:16,marginBottom:14,padding:16,borderRadius:16,alignItems:'center'},
+  chartCard:    {marginHorizontal:16,marginBottom:12,padding:16,borderRadius:16,borderWidth:1,shadowColor:'#000',shadowOffset:{width:0,height:1},shadowOpacity:0.04,shadowRadius:6,elevation:1},
+  chartTitle:   {fontSize:15,fontWeight:'700',marginBottom:14,letterSpacing:-0.2},
+  miniCard:     {padding:12,borderRadius:14,borderWidth:1,marginBottom:10},
+  secTitle:     {fontSize:16,fontWeight:'700',marginBottom:12,letterSpacing:-0.2},
+  venueStockCard:{padding:16,borderRadius:16,borderWidth:1,marginBottom:12},
+  stockItemRow: {flexDirection:'row',alignItems:'center',padding:14,borderRadius:14,borderWidth:1,marginBottom:10},
+  invCard:      {padding:16,borderRadius:16,borderWidth:1,marginBottom:12,shadowColor:'#000',shadowOffset:{width:0,height:1},shadowOpacity:0.04,shadowRadius:6,elevation:1},
+  invStat:      {flex:1,padding:12,borderRadius:12,borderWidth:1},
+  rentalCard:   {padding:16,borderRadius:16,borderWidth:1,marginBottom:12,shadowColor:'#000',shadowOffset:{width:0,height:1},shadowOpacity:0.04,shadowRadius:6,elevation:1},
+  fChip:        {paddingHorizontal:14,paddingVertical:6,borderRadius:20,borderWidth:1,marginRight:8},
+  searchBox:    {padding:12,borderRadius:12,borderWidth:1,fontSize:14},
+  sortBtn:      {paddingHorizontal:14,paddingVertical:10,borderRadius:12,borderWidth:1,alignItems:'center',justifyContent:'center'},
+  rowBtn:       {paddingHorizontal:12,paddingVertical:7,borderRadius:10,borderWidth:1,alignItems:'center'},
+  overlay:      {flex:1,backgroundColor:'rgba(0,0,0,0.55)',justifyContent:'flex-end'},
+  sheet:        {maxHeight:'93%',borderTopLeftRadius:24,borderTopRightRadius:24,padding:20},
+  sheetTitle:   {fontSize:20,fontWeight:'800',letterSpacing:-0.3},
+  secHead:      {fontSize:11,fontWeight:'700',letterSpacing:0.8,textTransform:'uppercase',paddingBottom:10,borderBottomWidth:1,marginBottom:14},
+  label:        {fontSize:12,fontWeight:'600',marginBottom:6,letterSpacing:0.2},
+  trigger:      {flexDirection:'row',alignItems:'center',paddingHorizontal:14,paddingVertical:12,borderRadius:12,borderWidth:1,marginBottom:0},
+  selPanel:     {margin:20,borderRadius:16,borderWidth:1,padding:14},
+  selSearch:    {padding:11,borderRadius:10,borderWidth:1,marginBottom:10},
+  selOpt:       {padding:13,borderRadius:8},
+  inp:          {paddingHorizontal:14,paddingVertical:12,borderRadius:12,borderWidth:1,marginBottom:12,fontSize:14},
+  itemRow:      {padding:14,borderRadius:14,borderWidth:1,marginBottom:12},
+  addItemBtn:   {padding:14,borderRadius:12,borderWidth:1.5,alignItems:'center',marginBottom:14},
+  totalBox:     {padding:16,borderRadius:14,borderWidth:1,alignItems:'center',marginBottom:14},
+  saveBtn:      {padding:15,borderRadius:14,alignItems:'center'},
+  saveTxt:      {color:'#fff',fontWeight:'700',fontSize:15,letterSpacing:0.2},
+  detailBlock:  {padding:18,borderRadius:16,borderWidth:1,alignItems:'center',marginBottom:14},
+  detRow:       {flexDirection:'row',paddingVertical:12,borderBottomWidth:1},
+  viewItemRow:  {padding:14,borderRadius:14,borderWidth:1,marginBottom:10},
+  actBtn:       {flex:1,padding:12,borderRadius:12,alignItems:'center'},
+  actTxt:       {color:'#fff',fontWeight:'700',fontSize:13},
 });

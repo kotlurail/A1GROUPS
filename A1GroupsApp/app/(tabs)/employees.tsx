@@ -258,7 +258,7 @@ function AddEmployeeModal({onClose,onAdd}:{onClose:()=>void;onAdd:(e:Employee)=>
   }
 
   return(
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
+    <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={sh.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1}/>
         <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',maxHeight:'92%'}}>
@@ -403,7 +403,7 @@ function EmployeeDetailModal({employee:init,year,month,onClose,onUpdate,onDelete
 
   if(isEditing){
     return(
-      <Modal transparent animationType="slide" onRequestClose={()=>setIsEditing(false)}>
+      <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={()=>setIsEditing(false)}>
         <View style={sh.overlay}>
           <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={()=>setIsEditing(false)} activeOpacity={1}/>
           <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',maxHeight:'92%'}}>
@@ -443,7 +443,7 @@ function EmployeeDetailModal({employee:init,year,month,onClose,onUpdate,onDelete
   }
 
   return(
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
+    <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={det.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1}/>
         <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',maxHeight:'94%'}}>

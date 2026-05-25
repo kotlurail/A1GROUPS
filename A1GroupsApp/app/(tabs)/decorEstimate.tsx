@@ -153,7 +153,7 @@ function Sel({label,value,options,onChange,isDark,ph}:{label?:string;value:strin
         <Text style={{color:value?t.text:t.sub,flex:1,fontSize:14}}>{value||ph||'Select...'}</Text>
         <Text style={{color:t.sub}}>▾</Text>
       </TouchableOpacity>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={()=>setOpen(false)}>
+      <Modal visible={open} transparent statusBarTranslucent animationType="fade" onRequestClose={()=>setOpen(false)}>
         <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={()=>setOpen(false)}>
           <View style={[s.selPanel,{backgroundColor:t.card,borderColor:t.border}]} onStartShouldSetResponder={()=>true}>
             <TextInput style={[s.selSearch,{backgroundColor:t.bg,color:t.text,borderColor:t.border}]}
@@ -440,7 +440,7 @@ function DecorSectionBlock({section,onChange,onDelete,isDark,idx}:{
 function SortModal({visible,current,onSelect,onClose,isDark}:{visible:boolean;current:SortKey;onSelect(k:SortKey):void;onClose():void;isDark:boolean}) {
   const t=isDark?DK:LT;
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={onClose}>
         <View style={[s.sheet,{backgroundColor:t.bg,maxHeight:360}]} onStartShouldSetResponder={()=>true}>
           <View style={{flexDirection:'row',alignItems:'center',marginBottom:14}}>

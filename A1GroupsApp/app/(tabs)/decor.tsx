@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { decorsApi, bookingsApi, uploadApi, BookingDoc } from '../../lib/api';
@@ -201,7 +202,7 @@ function SelectField({ value, options, onChange, placeholder, style }: {
         <Text style={[sel.triggerTxt, !value && { color: '#9B98C0' }]} numberOfLines={1}>{value || (placeholder ?? 'Select...')}</Text>
         <Text style={sel.arrow}>&#9660;</Text>
       </TouchableOpacity>
-      <Modal transparent animationType="fade" visible={open} onRequestClose={() => { setOpen(false); setSearch(''); }}>
+      <Modal transparent statusBarTranslucent animationType="fade" visible={open} onRequestClose={() => { setOpen(false); setSearch(''); }}>
         <TouchableOpacity style={sel.overlay} onPress={() => { setOpen(false); setSearch(''); }} activeOpacity={1}>
           <View style={sel.sheet}>
             <TextInput style={sel.search} placeholder="Search..." value={search} onChangeText={setSearch} autoFocus placeholderTextColor="#9B98C0" />
@@ -395,6 +396,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
   onCreate?: (e: DecorEntry) => Promise<void>;
   onUpdate?: (e: DecorEntry) => Promise<void>;
 }) {
+  const insets = useSafeAreaInsets();
   const [entry, setEntry]         = useState<DecorEntry>(init);
   const [isEditing, setIsEditing] = useState(isNew);
   const [fullImgIdx, setFullImgIdx] = useState<number | null>(null);
@@ -473,11 +475,11 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
   const bal   = calcBalance(entry);
 
   return (
-    <Modal transparent={false} animationType="slide" onRequestClose={isNew ? onClose : onClose}>
+    <Modal transparent={false} statusBarTranslucent animationType="slide" onRequestClose={isNew ? onClose : onClose}>
       <View style={{ flex: 1, backgroundColor: '#EEF0FF' }}>
 
         {/* Navbar */}
-        <View style={dmod.navbar}>
+        <View style={[dmod.navbar, { paddingTop: insets.top + 10 }]}>
           <TouchableOpacity onPress={isEditing ? handleCancel : onClose} style={dmod.navBack}>
             <Text style={dmod.navBackTxt}>{isEditing ? 'Cancel' : '&#8592; Back'}</Text>
           </TouchableOpacity>
@@ -855,7 +857,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
       </View>
 
       {/* Booking picker modal */}
-      <Modal visible={showBookingPicker} transparent animationType="slide" onRequestClose={() => setShowBookingPicker(false)}>
+      <Modal visible={showBookingPicker} transparent statusBarTranslucent animationType="slide" onRequestClose={() => setShowBookingPicker(false)}>
         <TouchableOpacity style={{ flex: 1, backgroundColor: '#00000060' }} activeOpacity={1} onPress={() => setShowBookingPicker(false)}>
           <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%', padding: 16 }}
             onStartShouldSetResponder={() => true}>
@@ -1080,7 +1082,7 @@ export default function DecorScreen() {
       </ScrollView>
 
       {/* Sort modal */}
-      <Modal transparent animationType="fade" visible={showSort} onRequestClose={() => setShowSort(false)}>
+      <Modal transparent statusBarTranslucent animationType="fade" visible={showSort} onRequestClose={() => setShowSort(false)}>
         <TouchableOpacity style={sel.overlay} onPress={() => setShowSort(false)} activeOpacity={1}>
           <View style={[sel.sheet, { width: SW * 0.8 }]}>
             <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A1A2E', marginBottom: 12 }}>Sort By</Text>
@@ -1177,7 +1179,7 @@ const dc = StyleSheet.create({
 });
 
 const dmod = StyleSheet.create({
-  navbar:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: Platform.OS === 'ios' ? 52 : 36, paddingBottom: 14, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: 'rgba(123,97,255,0.12)' },
+  navbar:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingBottom: 14, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: 'rgba(123,97,255,0.12)' },
   navBack:       { paddingVertical: 4, paddingRight: 8, minWidth: 60 },
   navBackTxt:    { fontSize: 14, fontWeight: '700', color: '#7B61FF' },
   navTitle:      { flex: 1, fontSize: 16, fontWeight: '800', color: '#1A1A2E', textAlign: 'center', marginHorizontal: 8, letterSpacing: -0.2 },

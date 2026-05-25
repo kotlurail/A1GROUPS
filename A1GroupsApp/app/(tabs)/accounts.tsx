@@ -117,7 +117,7 @@ function SelectField({ label, value, options, onChange, isDark }: {
         <Text style={{ color: value ? t.text : t.sub, flex: 1 }}>{value || 'Select...'}</Text>
         <Text style={{ color: t.sub }}>▾</Text>
       </TouchableOpacity>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal visible={open} transparent statusBarTranslucent animationType="fade" onRequestClose={() => setOpen(false)}>
         <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={[s.selectPanel, { backgroundColor: t.card, borderColor: t.border }]} onStartShouldSetResponder={() => true}>
             <TextInput
@@ -304,7 +304,7 @@ function TxModal({ visible, form, setForm, onSave, onClose, isDark, isEdit }: {
   const t = isDark ? dark : light;
   const cats = form.type === 'income' ? INCOME_TYPES : EXPENSE_TYPES;
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={s.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%' }}>
           <View style={[s.sheet, { backgroundColor: t.bg }]}>
@@ -369,7 +369,7 @@ function DetailModal({ tx, onClose, onEdit, onDelete, isDark }: {
   const inc = tx.type === 'income';
   const sc: Record<TxStatus, string> = { completed: '#27ae60', pending: '#f39c12', cancelled: '#e74c3c' };
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={s.overlay}>
         <View style={[s.sheet, { backgroundColor: t.bg }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
@@ -459,7 +459,7 @@ function SortModal({ visible, current, onSelect, onClose, isDark }: {
   const t = isDark ? dark : light;
   const groups = [...new Set(SORT_OPTIONS.map(o => o.group))];
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={onClose}>
         <View style={[s.sheet, { backgroundColor: t.bg }]} onStartShouldSetResponder={() => true}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>

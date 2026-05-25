@@ -150,7 +150,7 @@ function Sel({label,value,options,onChange,isDark,ph}:{label?:string;value:strin
         <Text style={{color:value?t.text:t.sub,flex:1}}>{value||ph||'Select...'}</Text>
         <Text style={{color:t.sub}}>▾</Text>
       </TouchableOpacity>
-      <Modal visible={open} transparent animationType="fade" onRequestClose={()=>setOpen(false)}>
+      <Modal visible={open} transparent statusBarTranslucent animationType="fade" onRequestClose={()=>setOpen(false)}>
         <TouchableOpacity style={ss.overlay} activeOpacity={1} onPress={()=>setOpen(false)}>
           <View style={[ss.selPanel,{backgroundColor:t.card,borderColor:t.border}]} onStartShouldSetResponder={()=>true}>
             <TextInput style={[ss.selSearch,{backgroundColor:t.bg,color:t.text,borderColor:t.border}]}
@@ -271,7 +271,7 @@ function RentalModal({visible,form,setForm,onSave,onClose,isDark,isEdit,inv,entr
   }
   const grandTotal=form.items.reduce((s,r)=>(parseFloat(r.qtyGiven)||0)*(parseFloat(r.pricePerItem)||0)+s,0);
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={ss.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={{width:'100%',maxHeight:'95%'}}>
           <View style={[ss.sheet,{backgroundColor:t.bg,flex:1}]}>
@@ -382,7 +382,7 @@ function ReturnModal({entry,onClose,onUpdate,isDark}:{entry:RentalEntry|null;onC
     const a=[...items]; a[idx]={...a[idx],...p}; setItems(a);
   }
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={ss.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={{width:'100%',maxHeight:'95%'}}>
           <View style={[ss.sheet,{backgroundColor:t.bg,flex:1}]}>
@@ -468,7 +468,7 @@ function ViewModal({entry,onClose,onEdit,onReturn,isDark,onPrint}:{entry:RentalE
   const total=entryTotal(entry);
   const st=entryStatus(entry);
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={ss.overlay}>
         <View style={[ss.sheet,{backgroundColor:t.bg,maxHeight:'95%'}]}>
           <View style={{flexDirection:'row',alignItems:'center',marginBottom:14}}>
@@ -528,7 +528,7 @@ function InvModal({visible,form,setForm,onSave,onClose,isDark,isEdit}:{
 }) {
   const t=isDark?DK:LT;
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={ss.overlay}>
         <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={{width:'100%',maxHeight:'95%'}}>
           <View style={[ss.sheet,{backgroundColor:t.bg,flex:1}]}>
@@ -590,7 +590,7 @@ function InvModal({visible,form,setForm,onSave,onClose,isDark,isEdit}:{
 function SortModal({visible,current,onSelect,onClose,isDark}:{visible:boolean;current:SortKey;onSelect(k:SortKey):void;onClose():void;isDark:boolean}) {
   const t=isDark?DK:LT;
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={ss.overlay} activeOpacity={1} onPress={onClose}>
         <View style={[ss.sheet,{backgroundColor:t.bg,maxHeight:380}]} onStartShouldSetResponder={()=>true}>
           <View style={{flexDirection:'row',alignItems:'center',marginBottom:14}}>

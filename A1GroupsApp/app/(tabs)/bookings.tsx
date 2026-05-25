@@ -752,7 +752,7 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
 
   return (
     <>
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
+    <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: '#00000055' }}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', position: 'absolute', bottom: 0 }}>
@@ -1428,7 +1428,7 @@ function BookingDetailModal({
   // ════════════════════════════════════════════════════════
   if (isEditing) {
     return (
-      <Modal transparent animationType="slide" onRequestClose={() => setIsEditing(false)}>
+      <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={() => setIsEditing(false)}>
         <View style={det.overlay}>
           <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={() => setIsEditing(false)} activeOpacity={1} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
@@ -1506,7 +1506,7 @@ function BookingDetailModal({
   // ════════════════════════════════════════════════════════
   return (
     <>
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
+    <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={det.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
@@ -2302,7 +2302,7 @@ function BookingDetailModal({
     </Modal>
 
     {/* ── Decor Picker Modal ── */}
-    <Modal visible={showDecorPicker} transparent animationType="slide" onRequestClose={() => setShowDecorPicker(false)}>
+    <Modal visible={showDecorPicker} transparent statusBarTranslucent animationType="slide" onRequestClose={() => setShowDecorPicker(false)}>
       <TouchableOpacity style={{ flex: 1, backgroundColor: '#00000060' }} activeOpacity={1} onPress={() => setShowDecorPicker(false)}>
         <View
           style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '78%', padding: 16 }}
@@ -2444,7 +2444,7 @@ function AddBookingModal({ onClose, onSave }: { onClose: () => void; onSave: (b:
   }
 
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
+    <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={det.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>

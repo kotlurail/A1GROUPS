@@ -42,7 +42,8 @@ export default function RootLayout() {
   }, []);
 
   const logout = async () => {
-    try { await authApi.logout(); } catch {}
+    // Fire to server in background — don't block local logout on network
+    authApi.logout().catch(() => {});
     await clearToken();
     setAuthed(false);
   };

@@ -1,10 +1,12 @@
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
+import { useState } from 'react';
 import { useAuth } from '../_layout';
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
   const isDark = useColorScheme() === 'dark';
   const bg   = isDark ? '#12102B' : '#EEF0FF';
   const card = isDark ? '#1E1B3A' : '#FFFFFF';
@@ -17,7 +19,15 @@ export default function SettingsScreen() {
       'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: logout },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            setLoggingOut(true);
+            await logout();
+            // setLoggingOut(false) not needed — component unmounts when authed → false
+          },
+        },
       ]
     );
   }
@@ -53,9 +63,20 @@ export default function SettingsScreen() {
         </View>
 
         {/* Logout button */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={confirmLogout} activeOpacity={0.85}>
-          <Text style={styles.logoutIcon}>🚪</Text>
-          <Text style={styles.logoutText}>Logout</Text>
+        <TouchableOpacity
+          style={[styles.logoutBtn, loggingOut && styles.logoutBtnDisabled]}
+          onPress={confirmLogout}
+          disabled={loggingOut}
+          activeOpacity={0.85}
+        >
+          {loggingOut ? (
+            <ActivityIndicator color="#FF4D4D" size="small" />
+          ) : (
+            <Text style={styles.logoutIcon}>🚪</Text>
+          )}
+          <Text style={styles.logoutText}>
+            {loggingOut ? 'Logging out…' : 'Logout'}
+          </Text>
         </TouchableOpacity>
 
         <Text style={[styles.hint, { color: sub }]}>
@@ -152,6 +173,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     marginTop: 8,
+  },
+  logoutBtnDisabled: {
+    opacity: 0.6,
   },
   logoutIcon: {
     fontSize: 20,

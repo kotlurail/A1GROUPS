@@ -12,9 +12,10 @@ const KEYS = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 interface Props { onSuccess: () => void; }
 
 export default function LoginScreen({ onSuccess }: Props) {
-  const [pin, setPin] = useState('');
+  const [pin, setPin]       = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]   = useState('');
+  const [status, setStatus] = useState('');
 
   const handleKey = async (key: string) => {
     if (loading) return;
@@ -31,15 +32,23 @@ export default function LoginScreen({ onSuccess }: Props) {
 
     if (next.length === PIN_LENGTH) {
       setLoading(true);
+      setStatus('Verifying…');
       try {
         const { token } = await authApi.login(next);
         await saveToken(token);
         onSuccess();
-      } catch {
-        setError('Incorrect PIN. Please try again.');
+      } catch (e: any) {
+        if (e?.message === 'TIMEOUT') {
+          setError('Server is waking up, please try again.');
+        } else if (e?.message === 'Incorrect PIN') {
+          setError('Incorrect PIN. Please try again.');
+        } else {
+          setError('Could not connect. Check your internet.');
+        }
         setPin('');
       } finally {
         setLoading(false);
+        setStatus('');
       }
     }
   };
@@ -50,27 +59,39 @@ export default function LoginScreen({ onSuccess }: Props) {
         {/* Header */}
         <Text style={styles.logo}>A1</Text>
         <Text style={styles.title}>A1 Groups</Text>
-        <Text style={styles.subtitle}>Enter your PIN to continue</Text>
+        <Text style={styles.subtitle}>
+          {loading ? status : 'Enter your PIN to continue'}
+        </Text>
 
-        {/* PIN dots */}
-        <View style={styles.dotsRow}>
-          {Array.from({ length: PIN_LENGTH }).map((_, i) => (
-            <View key={i} style={[styles.dot, i < pin.length && styles.dotFilled]} />
-          ))}
-        </View>
+        {/* PIN dots / loading indicator */}
+        {loading ? (
+          <View style={styles.spinnerBox}>
+            <ActivityIndicator color="#7B61FF" size="large" />
+          </View>
+        ) : (
+          <View style={styles.dotsRow}>
+            {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+              <View key={i} style={[styles.dot, i < pin.length && styles.dotFilled]} />
+            ))}
+          </View>
+        )}
 
         {/* Error */}
-        {error ? <Text style={styles.error}>{error}</Text> : <Text style={styles.errorPlaceholder} />}
+        {error ? (
+          <Text style={styles.error}>{error}</Text>
+        ) : (
+          <Text style={styles.errorPlaceholder} />
+        )}
 
         {/* Keypad */}
-        <View style={styles.keypad}>
+        <View style={[styles.keypad, loading && styles.keypadDisabled]}>
           {KEYS.map((k, i) =>
             k === '' ? (
               <View key={i} style={styles.keyEmpty} />
             ) : (
               <TouchableOpacity
                 key={i}
-                style={[styles.key, k === '⌫' && styles.keyDelete]}
+                style={[styles.key, k === '⌫' && styles.keyDelete, loading && styles.keyDisabled]}
                 onPress={() => handleKey(k)}
                 disabled={loading}
                 activeOpacity={0.7}
@@ -80,8 +101,6 @@ export default function LoginScreen({ onSuccess }: Props) {
             )
           )}
         </View>
-
-        {loading && <ActivityIndicator color="#6C63FF" size="large" style={{ marginTop: 24 }} />}
       </View>
     </SafeAreaView>
   );
@@ -101,7 +120,7 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 48,
     fontWeight: '800',
-    color: '#6C63FF',
+    color: '#7B61FF',
     letterSpacing: 2,
   },
   title: {
@@ -116,6 +135,12 @@ const styles = StyleSheet.create({
     color: '#8888aa',
     marginBottom: 40,
   },
+  spinnerBox: {
+    height: 58,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   dotsRow: {
     flexDirection: 'row',
     gap: 20,
@@ -126,17 +151,18 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: '#6C63FF',
+    borderColor: '#7B61FF',
     backgroundColor: 'transparent',
   },
   dotFilled: {
-    backgroundColor: '#6C63FF',
+    backgroundColor: '#7B61FF',
   },
   error: {
     color: '#ff5c5c',
     fontSize: 13,
     marginBottom: 20,
     height: 18,
+    textAlign: 'center',
   },
   errorPlaceholder: {
     height: 18,
@@ -148,6 +174,9 @@ const styles = StyleSheet.create({
     width: 270,
     gap: 16,
     justifyContent: 'center',
+  },
+  keypadDisabled: {
+    opacity: 0.35,
   },
   key: {
     width: 76,
@@ -163,6 +192,9 @@ const styles = StyleSheet.create({
   },
   keyDelete: {
     backgroundColor: '#2a1e30',
+  },
+  keyDisabled: {
+    opacity: 0.5,
   },
   keyText: {
     fontSize: 26,

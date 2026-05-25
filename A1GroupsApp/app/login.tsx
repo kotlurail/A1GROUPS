@@ -12,12 +12,20 @@ const KEYS = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 interface Props { onSuccess: () => void; }
 
 export default function LoginScreen({ onSuccess }: Props) {
-  const [pin, setPin]         = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
-  const [status, setStatus]   = useState('');
-  const [seconds, setSeconds] = useState(0);
+  const [pin, setPin]           = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const [status, setStatus]     = useState('');
+  const [seconds, setSeconds]   = useState(0);
+  const [serverReady, setServerReady] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Wake up the server as soon as login screen appears
+  useEffect(() => {
+    authApi.ping()
+      .then(() => setServerReady(true))
+      .catch(() => setServerReady(false));
+  }, []);
   const pinRef   = useRef('');
 
   useEffect(() => {
@@ -86,7 +94,9 @@ export default function LoginScreen({ onSuccess }: Props) {
     ? seconds > 5
       ? `Server is starting up… (${seconds}s)`
       : status
-    : 'Enter your PIN to continue';
+    : serverReady
+      ? 'Enter your PIN to continue'
+      : 'Connecting to server…';
 
   return (
     <SafeAreaView style={styles.container}>

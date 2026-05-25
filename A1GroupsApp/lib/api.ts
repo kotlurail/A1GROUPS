@@ -19,7 +19,7 @@ export const BASE_URL =
 
 // ─── Generic helpers ───────────────────────────────────────────────────────────
 
-const TIMEOUT_MS = 12_000;
+const TIMEOUT_MS = 65_000;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const token = await getToken();

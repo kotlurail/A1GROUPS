@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
@@ -12,10 +12,56 @@ const KEYS = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
 interface Props { onSuccess: () => void; }
 
 export default function LoginScreen({ onSuccess }: Props) {
-  const [pin, setPin]       = useState('');
+  const [pin, setPin]         = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState('');
-  const [status, setStatus] = useState('');
+  const [error, setError]     = useState('');
+  const [status, setStatus]   = useState('');
+  const [seconds, setSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pinRef   = useRef('');
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  function startCountup() {
+    setSeconds(0);
+    timerRef.current = setInterval(() => {
+      setSeconds(s => s + 1);
+    }, 1000);
+  }
+
+  function stopCountup() {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setSeconds(0);
+  }
+
+  async function attemptLogin(pinValue: string) {
+    setLoading(true);
+    setError('');
+    setStatus('Connecting to server…');
+    startCountup();
+
+    try {
+      const { token } = await authApi.login(pinValue);
+      stopCountup();
+      await saveToken(token);
+      onSuccess();
+    } catch (e: any) {
+      stopCountup();
+      if (e?.message === 'TIMEOUT') {
+        setError('Server timed out. Please try again.');
+      } else if (e?.message === 'Incorrect PIN') {
+        setError('Incorrect PIN. Please try again.');
+      } else {
+        setError('Could not connect. Check your internet.');
+      }
+      setPin('');
+    } finally {
+      setLoading(false);
+      setStatus('');
+    }
+  }
 
   const handleKey = async (key: string) => {
     if (loading) return;
@@ -29,29 +75,18 @@ export default function LoginScreen({ onSuccess }: Props) {
     const next = pin + key;
     setPin(next);
     setError('');
+    pinRef.current = next;
 
     if (next.length === PIN_LENGTH) {
-      setLoading(true);
-      setStatus('Verifying…');
-      try {
-        const { token } = await authApi.login(next);
-        await saveToken(token);
-        onSuccess();
-      } catch (e: any) {
-        if (e?.message === 'TIMEOUT') {
-          setError('Server is waking up, please try again.');
-        } else if (e?.message === 'Incorrect PIN') {
-          setError('Incorrect PIN. Please try again.');
-        } else {
-          setError('Could not connect. Check your internet.');
-        }
-        setPin('');
-      } finally {
-        setLoading(false);
-        setStatus('');
-      }
+      await attemptLogin(next);
     }
   };
+
+  const statusText = loading
+    ? seconds > 5
+      ? `Server is starting up… (${seconds}s)`
+      : status
+    : 'Enter your PIN to continue';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -59,9 +94,7 @@ export default function LoginScreen({ onSuccess }: Props) {
         {/* Header */}
         <Text style={styles.logo}>A1</Text>
         <Text style={styles.title}>A1 Groups</Text>
-        <Text style={styles.subtitle}>
-          {loading ? status : 'Enter your PIN to continue'}
-        </Text>
+        <Text style={styles.subtitle}>{statusText}</Text>
 
         {/* PIN dots / loading indicator */}
         {loading ? (
@@ -134,6 +167,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#8888aa',
     marginBottom: 40,
+    textAlign: 'center',
   },
   spinnerBox: {
     height: 58,

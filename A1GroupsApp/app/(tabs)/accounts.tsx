@@ -96,8 +96,8 @@ const emptyForm = (): TxForm => ({
 });
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
-const light = { bg: '#F4F6FB', card: '#FFFFFF', text: '#111827', sub: '#6B7280', border: '#E5E7EB', input: '#F9FAFB' };
-const dark  = { bg: '#0D1117', card: '#161B22', text: '#E6EDF3', sub: '#8B949E', border: '#30363D', input: '#0D1117' };
+const light = { bg: '#EEF0FF', card: '#FFFFFF', text: '#1A1A2E', sub: '#6E6E8D', border: 'rgba(123,97,255,0.12)', input: '#F7F5FF' };
+const dark  = { bg: '#12102B', card: '#1E1B3A', text: '#F0EDFF', sub: '#9B98C0', border: 'rgba(123,97,255,0.2)',  input: '#12102B' };
 
 // ─── SelectField ──────────────────────────────────────────────────────────────
 function SelectField({ label, value, options, onChange, isDark }: {

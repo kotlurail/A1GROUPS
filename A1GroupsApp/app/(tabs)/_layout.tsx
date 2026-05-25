@@ -3,19 +3,22 @@ import { Platform, Text, View } from 'react-native';
 import { useColorScheme } from 'react-native';
 
 const TABS = [
-  { name: 'index',         title: 'Rentals',    icon: '📦' },
-  { name: 'decor',         title: 'Decors',     icon: '🎨' },
-  { name: 'decorEstimate', title: 'Estimates',  icon: '📋' },
-  { name: 'employees',     title: 'Staff',      icon: '👤' },
-  { name: 'accounts',      title: 'Accounts',   icon: '💰' },
-  { name: 'bookings',      title: 'Bookings',   icon: '📅' },
+  { name: 'index',         title: 'Rentals',   icon: '📦' },
+  { name: 'decor',         title: 'Decors',    icon: '🎨' },
+  { name: 'decorEstimate', title: 'Estimates', icon: '📋' },
+  { name: 'employees',     title: 'Staff',     icon: '👤' },
+  { name: 'accounts',      title: 'Accounts',  icon: '💰' },
+  { name: 'bookings',      title: 'Bookings',  icon: '📅' },
 ];
 
 function TabIcon({ icon, focused }: { icon: string; focused: boolean }) {
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', width: 32, height: 32,
-      borderRadius: 10, backgroundColor: focused ? '#6C63FF18' : 'transparent' }}>
-      <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.55 }}>{icon}</Text>
+    <View style={{
+      alignItems: 'center', justifyContent: 'center',
+      width: 44, height: 30, borderRadius: 15,
+      backgroundColor: focused ? 'rgba(123,97,255,0.14)' : 'transparent',
+    }}>
+      <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.45 }}>{icon}</Text>
     </View>
   );
 }
@@ -24,27 +27,29 @@ export default function TabLayout() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
-  const tabBar = {
-    backgroundColor:     isDark ? '#161B22' : '#FFFFFF',
-    borderTopWidth:      1,
-    borderTopColor:      isDark ? '#30363D' : '#F0F1F5',
-    height:              Platform.OS === 'ios' ? 82 : 64,
-    paddingBottom:       Platform.OS === 'ios' ? 22 : 8,
-    paddingTop:          8,
-  };
-
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle:            tabBar,
-        tabBarActiveTintColor:  '#6C63FF',
-        tabBarInactiveTintColor: isDark ? '#555E6D' : '#9CA3AF',
+        tabBarStyle: {
+          backgroundColor: isDark ? '#1E1B3A' : '#FFFFFF',
+          borderTopWidth: 0,
+          height:         Platform.OS === 'ios' ? 84 : 66,
+          paddingBottom:  Platform.OS === 'ios' ? 24 : 10,
+          paddingTop:     8,
+          shadowColor:    '#7B61FF',
+          shadowOffset:   { width: 0, height: -4 },
+          shadowOpacity:  0.08,
+          shadowRadius:   16,
+          elevation:      12,
+        },
+        tabBarActiveTintColor:   '#7B61FF',
+        tabBarInactiveTintColor: isDark ? '#4A4870' : '#B0AFCE',
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '600',
+          fontSize:      10,
+          fontWeight:    '700',
           letterSpacing: 0.2,
-          marginTop: 2,
+          marginTop:     2,
         },
       }}
     >

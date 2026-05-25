@@ -109,19 +109,19 @@ if(Platform.OS!=='web'){
 function DatePickerField({value,onChange,style}:{value:string;onChange:(d:string)=>void;style?:any}){
   const [show,setShow]=useState(false);
   const dateObj=isValidDate(value)?new Date(value+'T12:00:00'):new Date();
-  const base={backgroundColor:'#f4f6fb',borderRadius:10,borderWidth:1,borderColor:'#e8eaf0',overflow:'hidden' as const};
+  const base={backgroundColor:'#F7F5FF',borderRadius:10,borderWidth:1,borderColor:'rgba(123,97,255,0.15)',overflow:'hidden' as const};
   if(Platform.OS==='web'){
     return(
       <View style={[base,style]}>
         <input type="date" value={value} onChange={(e:any)=>onChange(e.target.value)}
-          style={{border:'none',background:'transparent',fontSize:14,color:value?'#1a1a2e':'#aaa',width:'100%',padding:'10px 12px',fontFamily:'inherit',outline:'none',boxSizing:'border-box'} as any}/>
+          style={{border:'none',background:'transparent',fontSize:14,color:value?'#1A1A2E':'#9B98C0',width:'100%',padding:'10px 12px',fontFamily:'inherit',outline:'none',boxSizing:'border-box'} as any}/>
       </View>
     );
   }
   return(
     <>
       <TouchableOpacity style={[base,{paddingHorizontal:12,paddingVertical:12,justifyContent:'center'},style]} onPress={()=>setShow(true)} activeOpacity={0.7}>
-        <Text style={{fontSize:14,color:value?'#1a1a2e':'#aaa'}}>{value||'Select date'}</Text>
+        <Text style={{fontSize:14,color:value?'#1A1A2E':'#9B98C0'}}>{value||'Select date'}</Text>
       </TouchableOpacity>
       {show&&RNDateTimePicker&&(
         <RNDateTimePicker value={dateObj} mode="date" display="default"
@@ -281,7 +281,7 @@ function AddEmployeeModal({onClose,onAdd}:{onClose:()=>void;onAdd:(e:Employee)=>
               <TextInput style={sh.input} placeholder="26" keyboardType="number-pad" value={wdays} onChangeText={setWdays}/>
               <Text style={sh.label}>Join Date</Text>
               <DatePickerField value={joinDate} onChange={setJoinDate}/>
-              <Text style={[sh.label,{marginTop:20,fontSize:13,color:'#1a1a2e'}]}>Salary Period</Text>
+              <Text style={[sh.label,{marginTop:20,fontSize:13,color:'#1A1A2E'}]}>Salary Period</Text>
               <Text style={sh.label}>Period Start</Text>
               <DatePickerField value={pStart} onChange={setPStart}/>
               <Text style={sh.label}>Period End</Text>
@@ -424,7 +424,7 @@ function EmployeeDetailModal({employee:init,year,month,onClose,onUpdate,onDelete
                 <TextInput style={sh.input} keyboardType="number-pad" value={editSalary} onChangeText={setEditSalary}/>
                 <Text style={sh.label}>Working Days per Month</Text>
                 <TextInput style={sh.input} keyboardType="number-pad" value={editWdays} onChangeText={setEditWdays}/>
-                <Text style={[sh.label,{marginTop:20,fontSize:13,color:'#1a1a2e',textTransform:'none',letterSpacing:0}]}>Salary Period</Text>
+                <Text style={[sh.label,{marginTop:20,fontSize:13,color:'#1A1A2E',textTransform:'none',letterSpacing:0}]}>Salary Period</Text>
                 <Text style={sh.label}>Period Start</Text>
                 <DatePickerField value={editPStart} onChange={setEditPStart}/>
                 <Text style={sh.label}>Period End</Text>
@@ -491,7 +491,7 @@ function EmployeeDetailModal({employee:init,year,month,onClose,onUpdate,onDelete
                   </View>
                   <View style={det.earnedRow}>
                     <Text style={det.earnedLabel}>Earned This Month</Text>
-                    <Text style={[det.earnedVal,{color:'#6C63FF',fontWeight:'800',fontSize:16}]}>{fmtMoney(earned)}</Text>
+                    <Text style={[det.earnedVal,{color:'#7B61FF',fontWeight:'800',fontSize:16}]}>{fmtMoney(earned)}</Text>
                   </View>
                 </View>
               </View>
@@ -642,7 +642,7 @@ export default function EmployeesScreen(){
         <View style={main.summaryCard}>
           <Text style={main.summaryHeading}>{employees.length} Employee{employees.length!==1?'s':''}  ·  Monthly Overview</Text>
           <View style={main.summaryRow}>
-            <View style={main.sumItem}><Text style={main.sumLabel}>Total Payroll</Text><Text style={[main.sumVal,{color:'#1a1a2e'}]}>{fmtMoney(totalPayroll)}</Text></View>
+            <View style={main.sumItem}><Text style={main.sumLabel}>Total Payroll</Text><Text style={[main.sumVal,{color:'#1A1A2E'}]}>{fmtMoney(totalPayroll)}</Text></View>
             <View style={main.sumItem}><Text style={main.sumLabel}>Advances</Text><Text style={[main.sumVal,{color:'#e67e22'}]}>{fmtMoney(totalAdv)}</Text></View>
             <View style={main.sumItem}><Text style={main.sumLabel}>Paid</Text><Text style={[main.sumVal,{color:'#27ae60'}]}>{fmtMoney(totalPaid)}</Text></View>
             <View style={main.sumItem}><Text style={main.sumLabel}>Balance</Text><Text style={[main.sumVal,{color:totalBal>=0?'#2980b9':'#e74c3c'}]}>{fmtMoney(totalBal)}</Text></View>
@@ -675,128 +675,128 @@ export default function EmployeesScreen(){
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const main=StyleSheet.create({
-  container:      {flex:1,backgroundColor:'#F4F6FB'},
-  topBar:         {flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:18,paddingTop:52,paddingBottom:14,backgroundColor:'#fff',borderBottomWidth:1,borderBottomColor:'#E5E7EB'},
-  topTitle:       {fontSize:22,fontWeight:'800',color:'#111827',letterSpacing:-0.3},
-  addBtn:         {backgroundColor:'#6C63FF',paddingHorizontal:18,paddingVertical:9,borderRadius:22},
+  container:      {flex:1,backgroundColor:'#EEF0FF'},
+  topBar:         {flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:18,paddingTop:52,paddingBottom:14,backgroundColor:'#FFFFFF',borderBottomWidth:1,borderBottomColor:'rgba(123,97,255,0.12)'},
+  topTitle:       {fontSize:22,fontWeight:'800',color:'#1A1A2E',letterSpacing:-0.3},
+  addBtn:         {backgroundColor:'#7B61FF',paddingHorizontal:18,paddingVertical:9,borderRadius:22},
   addBtnTxt:      {color:'#fff',fontWeight:'700',fontSize:14,letterSpacing:0.1},
   monthNav:       {flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:18,paddingVertical:14},
-  navBtn:         {width:38,height:38,borderRadius:19,backgroundColor:'#F3F4F6',alignItems:'center',justifyContent:'center'},
-  navTxt:         {fontSize:16,fontWeight:'700',color:'#111827'},
-  monthTitle:     {fontSize:17,fontWeight:'700',color:'#111827',letterSpacing:-0.2},
-  summaryCard:    {marginHorizontal:16,marginBottom:14,backgroundColor:'#fff',borderRadius:18,padding:18,shadowColor:'#000',shadowOffset:{width:0,height:2},shadowOpacity:0.06,shadowRadius:10,elevation:3},
-  summaryHeading: {fontSize:11,fontWeight:'700',color:'#9CA3AF',marginBottom:12,textTransform:'uppercase',letterSpacing:0.8},
+  navBtn:         {width:38,height:38,borderRadius:19,backgroundColor:'rgba(123,97,255,0.1)',alignItems:'center',justifyContent:'center'},
+  navTxt:         {fontSize:16,fontWeight:'700',color:'#1A1A2E'},
+  monthTitle:     {fontSize:17,fontWeight:'700',color:'#1A1A2E',letterSpacing:-0.2},
+  summaryCard:    {marginHorizontal:16,marginBottom:14,backgroundColor:'#FFFFFF',borderRadius:18,padding:18,shadowColor:'#7B61FF',shadowOffset:{width:0,height:2},shadowOpacity:0.1,shadowRadius:10,elevation:3},
+  summaryHeading: {fontSize:11,fontWeight:'700',color:'#6E6E8D',marginBottom:12,textTransform:'uppercase',letterSpacing:0.8},
   summaryRow:     {flexDirection:'row'},
   sumItem:        {flex:1,alignItems:'center'},
-  sumLabel:       {fontSize:11,color:'#9CA3AF',marginBottom:3,fontWeight:'500'},
+  sumLabel:       {fontSize:11,color:'#6E6E8D',marginBottom:3,fontWeight:'500'},
   sumVal:         {fontSize:16,fontWeight:'800'},
   empty:          {alignItems:'center',marginTop:72},
-  emptyTxt:       {fontSize:17,fontWeight:'700',color:'#6B7280'},
-  emptyHint:      {fontSize:13,color:'#9CA3AF',marginTop:8,fontWeight:'500'},
+  emptyTxt:       {fontSize:17,fontWeight:'700',color:'#6E6E8D'},
+  emptyHint:      {fontSize:13,color:'#9B98C0',marginTop:8,fontWeight:'500'},
 });
 
 const ec=StyleSheet.create({
-  card:        {marginHorizontal:16,marginBottom:12,backgroundColor:'#fff',borderRadius:18,padding:18,shadowColor:'#000',shadowOffset:{width:0,height:2},shadowOpacity:0.06,shadowRadius:10,elevation:3},
+  card:        {marginHorizontal:16,marginBottom:12,backgroundColor:'#FFFFFF',borderRadius:18,padding:18,shadowColor:'#7B61FF',shadowOffset:{width:0,height:2},shadowOpacity:0.1,shadowRadius:10,elevation:3},
   topRow:      {flexDirection:'row',alignItems:'flex-start',marginBottom:12},
-  name:        {fontSize:17,fontWeight:'800',color:'#111827',letterSpacing:-0.2},
-  role:        {fontSize:13,color:'#6B7280',marginTop:3,fontWeight:'500'},
-  phone:       {fontSize:12,color:'#9CA3AF',marginTop:2},
+  name:        {fontSize:17,fontWeight:'800',color:'#1A1A2E',letterSpacing:-0.2},
+  role:        {fontSize:13,color:'#6E6E8D',marginTop:3,fontWeight:'500'},
+  phone:       {fontSize:12,color:'#9B98C0',marginTop:2},
   salaryBadge: {alignItems:'flex-end'},
-  salaryAmt:   {fontSize:17,fontWeight:'800',color:'#6C63FF'},
-  salaryLabel: {fontSize:11,color:'#9CA3AF',fontWeight:'500'},
+  salaryAmt:   {fontSize:17,fontWeight:'800',color:'#7B61FF'},
+  salaryLabel: {fontSize:11,color:'#9B98C0',fontWeight:'500'},
   attRow:      {flexDirection:'row',gap:8,marginBottom:12},
   attChip:     {flex:1,alignItems:'center',paddingVertical:8,borderRadius:12},
   attNum:      {fontSize:17,fontWeight:'800'},
   attLbl:      {fontSize:10,fontWeight:'600',marginTop:2,letterSpacing:0.2},
-  finRow:      {flexDirection:'row',borderTopWidth:1,borderTopColor:'#F3F4F6',paddingTop:12},
+  finRow:      {flexDirection:'row',borderTopWidth:1,borderTopColor:'rgba(123,97,255,0.1)',paddingTop:12},
   finItem:     {flex:1,alignItems:'center'},
-  finLabel:    {fontSize:11,color:'#9CA3AF',fontWeight:'500'},
+  finLabel:    {fontSize:11,color:'#6E6E8D',fontWeight:'500'},
   finVal:      {fontSize:15,fontWeight:'800',marginTop:3},
 });
 
 const att=StyleSheet.create({
   container:  {marginTop:8},
   header:     {flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:8},
-  navBtn:     {width:30,height:30,borderRadius:15,backgroundColor:'#f0f0f0',alignItems:'center',justifyContent:'center'},
-  navTxt:     {fontSize:14,fontWeight:'700',color:'#1a1a2e'},
-  title:      {fontSize:14,fontWeight:'700',color:'#1a1a2e'},
+  navBtn:     {width:30,height:30,borderRadius:15,backgroundColor:'rgba(123,97,255,0.1)',alignItems:'center',justifyContent:'center'},
+  navTxt:     {fontSize:14,fontWeight:'700',color:'#1A1A2E'},
+  title:      {fontSize:14,fontWeight:'700',color:'#1A1A2E'},
   dayRow:     {flexDirection:'row',marginBottom:4},
-  dayName:    {flex:1,textAlign:'center',fontSize:11,fontWeight:'700',color:'#aaa'},
+  dayName:    {flex:1,textAlign:'center',fontSize:11,fontWeight:'700',color:'#9B98C0'},
   weekRow:    {flexDirection:'row',marginBottom:2},
   cell:       {flex:1,aspectRatio:1,alignItems:'center',justifyContent:'center',borderRadius:6,borderWidth:1,borderColor:'transparent',margin:1},
-  todayCell:  {borderColor:'#6C63FF',borderWidth:1.5},
-  dayNum:     {fontSize:12,fontWeight:'600',color:'#333'},
-  todayNum:   {color:'#6C63FF',fontWeight:'800'},
+  todayCell:  {borderColor:'#7B61FF',borderWidth:1.5},
+  dayNum:     {fontSize:12,fontWeight:'600',color:'#1A1A2E'},
+  todayNum:   {color:'#7B61FF',fontWeight:'800'},
   statusLbl:  {fontSize:9,fontWeight:'700',marginTop:1},
   legend:     {flexDirection:'row',justifyContent:'center',gap:12,marginTop:10,flexWrap:'wrap'},
   legendItem: {flexDirection:'row',alignItems:'center',gap:4},
   legendDot:  {width:8,height:8,borderRadius:4},
-  legendTxt:  {fontSize:11,color:'#666'},
+  legendTxt:  {fontSize:11,color:'#6E6E8D'},
 });
 
 const sh=StyleSheet.create({
   overlay:   {flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,0.55)'},
-  sheet:     {backgroundColor:'#fff',borderTopLeftRadius:28,borderTopRightRadius:28,paddingHorizontal:20,paddingBottom:Platform.OS==='ios'?36:20},
-  handle:    {width:44,height:4,backgroundColor:'#E5E7EB',borderRadius:2,alignSelf:'center',marginTop:14,marginBottom:10},
+  sheet:     {backgroundColor:'#FFFFFF',borderTopLeftRadius:28,borderTopRightRadius:28,paddingHorizontal:20,paddingBottom:Platform.OS==='ios'?36:20},
+  handle:    {width:44,height:4,backgroundColor:'rgba(123,97,255,0.15)',borderRadius:2,alignSelf:'center',marginTop:14,marginBottom:10},
   header:    {flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:18},
-  title:     {fontSize:20,fontWeight:'800',color:'#111827',letterSpacing:-0.3},
-  close:     {fontSize:18,color:'#9CA3AF',padding:4},
-  label:     {fontSize:11,fontWeight:'700',color:'#9CA3AF',marginTop:16,marginBottom:7,textTransform:'uppercase',letterSpacing:0.8},
-  input:     {backgroundColor:'#F9FAFB',borderRadius:14,borderWidth:1,borderColor:'#E5E7EB',paddingHorizontal:16,paddingVertical:13,fontSize:14,color:'#111827'},
+  title:     {fontSize:20,fontWeight:'800',color:'#1A1A2E',letterSpacing:-0.3},
+  close:     {fontSize:18,color:'#9B98C0',padding:4},
+  label:     {fontSize:11,fontWeight:'700',color:'#6E6E8D',marginTop:16,marginBottom:7,textTransform:'uppercase',letterSpacing:0.8},
+  input:     {backgroundColor:'#F7F5FF',borderRadius:14,borderWidth:1,borderColor:'rgba(123,97,255,0.15)',paddingHorizontal:16,paddingVertical:13,fontSize:14,color:'#1A1A2E'},
   actionRow: {flexDirection:'row',gap:12,marginTop:22},
-  cancelBtn: {flex:1,paddingVertical:15,borderRadius:14,borderWidth:1.5,borderColor:'#E5E7EB',alignItems:'center'},
-  cancelTxt: {fontSize:15,fontWeight:'700',color:'#9CA3AF'},
-  saveBtn:   {flex:2,paddingVertical:15,borderRadius:14,backgroundColor:'#6C63FF',alignItems:'center'},
+  cancelBtn: {flex:1,paddingVertical:15,borderRadius:14,borderWidth:1.5,borderColor:'rgba(123,97,255,0.2)',alignItems:'center'},
+  cancelTxt: {fontSize:15,fontWeight:'700',color:'#9B98C0'},
+  saveBtn:   {flex:2,paddingVertical:15,borderRadius:14,backgroundColor:'#7B61FF',alignItems:'center'},
   saveTxt:   {fontSize:15,fontWeight:'700',color:'#fff'},
 });
 
 const det=StyleSheet.create({
   overlay:        {flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,0.55)'},
-  sheet:          {backgroundColor:'#F4F6FB',borderTopLeftRadius:28,borderTopRightRadius:28,paddingBottom:Platform.OS==='ios'?36:16},
-  handle:         {width:44,height:4,backgroundColor:'#E5E7EB',borderRadius:2,alignSelf:'center',marginTop:14,marginBottom:4},
+  sheet:          {backgroundColor:'#EEF0FF',borderTopLeftRadius:28,borderTopRightRadius:28,paddingBottom:Platform.OS==='ios'?36:16},
+  handle:         {width:44,height:4,backgroundColor:'rgba(123,97,255,0.15)',borderRadius:2,alignSelf:'center',marginTop:14,marginBottom:4},
   titleRow:       {flexDirection:'row',alignItems:'flex-start',paddingHorizontal:18,paddingTop:8,paddingBottom:10},
-  title:          {fontSize:21,fontWeight:'800',color:'#111827',letterSpacing:-0.3},
-  subtitle:       {fontSize:13,color:'#6B7280',marginTop:3,fontWeight:'500'},
-  period:         {fontSize:11,color:'#9CA3AF',marginTop:2,fontWeight:'500'},
-  editBtn:        {backgroundColor:'#6C63FF1A',borderRadius:22,paddingHorizontal:16,paddingVertical:8,marginTop:4},
-  editBtnTxt:     {fontSize:13,fontWeight:'700',color:'#6C63FF'},
+  title:          {fontSize:21,fontWeight:'800',color:'#1A1A2E',letterSpacing:-0.3},
+  subtitle:       {fontSize:13,color:'#6E6E8D',marginTop:3,fontWeight:'500'},
+  period:         {fontSize:11,color:'#9B98C0',marginTop:2,fontWeight:'500'},
+  editBtn:        {backgroundColor:'rgba(123,97,255,0.1)',borderRadius:22,paddingHorizontal:16,paddingVertical:8,marginTop:4},
+  editBtnTxt:     {fontSize:13,fontWeight:'700',color:'#7B61FF'},
   chipRow:        {flexDirection:'row',gap:8,paddingHorizontal:16,marginBottom:10},
-  chip:           {flex:1,backgroundColor:'#fff',borderRadius:14,padding:12,alignItems:'center',borderWidth:1,borderColor:'#E5E7EB',shadowColor:'#000',shadowOffset:{width:0,height:1},shadowOpacity:0.04,shadowRadius:4,elevation:1},
-  chipLabel:      {fontSize:10,color:'#9CA3AF',marginBottom:3,fontWeight:'600',letterSpacing:0.2},
-  chipVal:        {fontSize:14,fontWeight:'800',color:'#111827'},
-  card:           {marginHorizontal:16,marginBottom:12,backgroundColor:'#fff',borderRadius:18,padding:18,shadowColor:'#000',shadowOffset:{width:0,height:2},shadowOpacity:0.05,shadowRadius:8,elevation:2},
-  cardTitle:      {fontSize:15,fontWeight:'800',color:'#111827',marginBottom:3,letterSpacing:-0.2},
-  cardHint:       {fontSize:11,color:'#9CA3AF',marginBottom:10,fontWeight:'500'},
+  chip:           {flex:1,backgroundColor:'#FFFFFF',borderRadius:14,padding:12,alignItems:'center',borderWidth:1,borderColor:'rgba(123,97,255,0.12)',shadowColor:'#7B61FF',shadowOffset:{width:0,height:1},shadowOpacity:0.08,shadowRadius:4,elevation:1},
+  chipLabel:      {fontSize:10,color:'#6E6E8D',marginBottom:3,fontWeight:'600',letterSpacing:0.2},
+  chipVal:        {fontSize:14,fontWeight:'800',color:'#1A1A2E'},
+  card:           {marginHorizontal:16,marginBottom:12,backgroundColor:'#FFFFFF',borderRadius:18,padding:18,shadowColor:'#7B61FF',shadowOffset:{width:0,height:2},shadowOpacity:0.08,shadowRadius:8,elevation:2},
+  cardTitle:      {fontSize:15,fontWeight:'800',color:'#1A1A2E',marginBottom:3,letterSpacing:-0.2},
+  cardHint:       {fontSize:11,color:'#6E6E8D',marginBottom:10,fontWeight:'500'},
   attCountRow:    {flexDirection:'row',gap:8,marginTop:14},
   attCountChip:   {flex:1,alignItems:'center',paddingVertical:10,borderRadius:14,borderWidth:1},
   attCountNum:    {fontSize:19,fontWeight:'800'},
   attCountLabel:  {fontSize:9,fontWeight:'700',marginTop:2,letterSpacing:0.3},
-  earnedBox:      {backgroundColor:'#F4F6FB',borderRadius:14,padding:14,borderWidth:1,borderColor:'#E5E7EB',marginTop:14},
+  earnedBox:      {backgroundColor:'#F7F5FF',borderRadius:14,padding:14,borderWidth:1,borderColor:'rgba(123,97,255,0.12)',marginTop:14},
   earnedRow:      {flexDirection:'row',justifyContent:'space-between',paddingVertical:5},
-  earnedLabel:    {fontSize:13,color:'#6B7280',fontWeight:'500'},
-  earnedVal:      {fontSize:13,fontWeight:'600',color:'#111827'},
-  emptyHint:      {fontSize:13,color:'#9CA3AF',fontStyle:'italic',paddingVertical:10},
-  cashItem:       {flexDirection:'row',alignItems:'center',gap:10,paddingVertical:12,borderBottomWidth:1,borderBottomColor:'#F3F4F6'},
+  earnedLabel:    {fontSize:13,color:'#6E6E8D',fontWeight:'500'},
+  earnedVal:      {fontSize:13,fontWeight:'600',color:'#1A1A2E'},
+  emptyHint:      {fontSize:13,color:'#9B98C0',fontStyle:'italic',paddingVertical:10},
+  cashItem:       {flexDirection:'row',alignItems:'center',gap:10,paddingVertical:12,borderBottomWidth:1,borderBottomColor:'rgba(123,97,255,0.08)'},
   cashDot:        {width:9,height:9,borderRadius:5,flexShrink:0},
-  cashNote:       {fontSize:13,fontWeight:'600',color:'#111827'},
-  cashMeta:       {fontSize:11,color:'#9CA3AF',marginTop:2,fontWeight:'500'},
+  cashNote:       {fontSize:13,fontWeight:'600',color:'#1A1A2E'},
+  cashMeta:       {fontSize:11,color:'#9B98C0',marginTop:2,fontWeight:'500'},
   cashAmt:        {fontSize:15,fontWeight:'800'},
   delBtn:         {padding:4},
   delTxt:         {fontSize:12,color:'#EF4444'},
-  inputLabel:     {fontSize:11,fontWeight:'700',color:'#9CA3AF',marginTop:14,marginBottom:7,textTransform:'uppercase',letterSpacing:0.8},
+  inputLabel:     {fontSize:11,fontWeight:'700',color:'#6E6E8D',marginTop:14,marginBottom:7,textTransform:'uppercase',letterSpacing:0.8},
   typeRow:        {flexDirection:'row',gap:8,marginBottom:6,flexWrap:'wrap'},
-  typeChip:       {paddingHorizontal:14,paddingVertical:9,borderRadius:22,borderWidth:1.5,borderColor:'#E5E7EB',backgroundColor:'#F9FAFB'},
-  typeChipActive: {backgroundColor:'#6C63FF',borderColor:'#6C63FF'},
-  typeChipTxt:    {fontSize:13,fontWeight:'600',color:'#6B7280'},
-  input:          {backgroundColor:'#F9FAFB',borderRadius:14,borderWidth:1,borderColor:'#E5E7EB',paddingHorizontal:16,paddingVertical:13,fontSize:14,color:'#111827'},
-  actionBtn:      {backgroundColor:'#6C63FF',borderRadius:16,paddingVertical:15,alignItems:'center'},
+  typeChip:       {paddingHorizontal:14,paddingVertical:9,borderRadius:22,borderWidth:1.5,borderColor:'rgba(123,97,255,0.2)',backgroundColor:'#F7F5FF'},
+  typeChipActive: {backgroundColor:'#7B61FF',borderColor:'#7B61FF'},
+  typeChipTxt:    {fontSize:13,fontWeight:'600',color:'#6E6E8D'},
+  input:          {backgroundColor:'#F7F5FF',borderRadius:14,borderWidth:1,borderColor:'rgba(123,97,255,0.15)',paddingHorizontal:16,paddingVertical:13,fontSize:14,color:'#1A1A2E'},
+  actionBtn:      {backgroundColor:'#7B61FF',borderRadius:16,paddingVertical:15,alignItems:'center'},
   actionBtnTxt:   {fontSize:15,fontWeight:'700',color:'#fff'},
-  summaryBlock:   {backgroundColor:'#F4F6FB',borderRadius:14,padding:14,borderWidth:1,borderColor:'#E5E7EB'},
-  sumRow:         {flexDirection:'row',justifyContent:'space-between',paddingVertical:7,borderBottomWidth:1,borderBottomColor:'#F3F4F6'},
-  sumLabel:       {fontSize:13,color:'#6B7280',flex:1,fontWeight:'500'},
-  sumVal:         {fontSize:13,fontWeight:'600',color:'#111827'},
-  sumTotalRow:    {borderBottomWidth:0,borderTopWidth:2,borderTopColor:'#E5E7EB',marginTop:4,paddingTop:12},
-  sumTotalLabel:  {fontSize:14,fontWeight:'800',color:'#111827',flex:1},
+  summaryBlock:   {backgroundColor:'#F7F5FF',borderRadius:14,padding:14,borderWidth:1,borderColor:'rgba(123,97,255,0.12)'},
+  sumRow:         {flexDirection:'row',justifyContent:'space-between',paddingVertical:7,borderBottomWidth:1,borderBottomColor:'rgba(123,97,255,0.08)'},
+  sumLabel:       {fontSize:13,color:'#6E6E8D',flex:1,fontWeight:'500'},
+  sumVal:         {fontSize:13,fontWeight:'600',color:'#1A1A2E'},
+  sumTotalRow:    {borderBottomWidth:0,borderTopWidth:2,borderTopColor:'rgba(123,97,255,0.15)',marginTop:4,paddingTop:12},
+  sumTotalLabel:  {fontSize:14,fontWeight:'800',color:'#1A1A2E',flex:1},
   sumTotalVal:    {fontSize:17,fontWeight:'800'},
   pendingBanner:  {marginTop:14,backgroundColor:'#FFF8EC',borderRadius:12,paddingHorizontal:16,paddingVertical:12,borderWidth:1,borderColor:'#FCD34D'},
   pendingTxt:     {fontSize:13,fontWeight:'700',color:'#D97706',textAlign:'center'},

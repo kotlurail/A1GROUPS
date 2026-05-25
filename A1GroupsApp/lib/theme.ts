@@ -1,165 +1,104 @@
-import { Platform, StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 
-// ─── Brand Palette ───────────────────────────────────────────────────────────
+// ─── Brand Palette ────────────────────────────────────────────────────────────
 export const C = {
-  primary:   '#6C63FF',
-  primary15: '#6C63FF26',
-  primary25: '#6C63FF40',
-  success:   '#10B981',
-  success15: '#10B98126',
-  warning:   '#F59E0B',
-  warning15: '#F59E0B26',
-  danger:    '#EF4444',
-  danger15:  '#EF444426',
+  primary:   '#7B61FF',
+  primarySoft:'#EDE9FF',
+  primary80: 'rgba(123,97,255,0.8)',
+  primary20: 'rgba(123,97,255,0.2)',
+  primary10: 'rgba(123,97,255,0.1)',
+  primary06: 'rgba(123,97,255,0.06)',
+
+  success:   '#00C9A7',
+  success10: 'rgba(0,201,167,0.12)',
+  warning:   '#FFB020',
+  warning10: 'rgba(255,176,32,0.12)',
+  danger:    '#FF4D4D',
+  danger10:  'rgba(255,77,77,0.12)',
   info:      '#3B82F6',
-  info15:    '#3B82F626',
-  income:    '#10B981',
-  expense:   '#EF4444',
+  info10:    'rgba(59,130,246,0.12)',
+
+  income:  '#00C9A7',
+  expense: '#FF4D4D',
+
+  navy:    '#1A1A2E',
+  mid:     '#3D3D5C',
+  muted:   '#6E6E8D',
+  pale:    '#9B9BB4',
 };
 
 // ─── Light Theme ─────────────────────────────────────────────────────────────
 export const LT = {
-  bg:      '#F4F6FB',
+  bg:      '#EEF0FF',   // soft lavender
   card:    '#FFFFFF',
-  text:    '#111827',
-  textMid: '#374151',
-  sub:     '#6B7280',
-  border:  '#E5E7EB',
-  divider: '#F3F4F6',
-  input:   '#F9FAFB',
+  cardAlt: '#F7F5FF',   // slightly tinted card
+  text:    '#1A1A2E',
+  textMid: '#3D3D5C',
+  sub:     '#6E6E8D',
+  border:  'rgba(123,97,255,0.12)',
+  divider: 'rgba(123,97,255,0.08)',
+  input:   '#F7F5FF',
   nav:     '#FFFFFF',
   header:  '#FFFFFF',
+  tabBg:   '#FFFFFF',
 };
 
 // ─── Dark Theme ──────────────────────────────────────────────────────────────
 export const DK = {
-  bg:      '#0D1117',
-  card:    '#161B22',
-  text:    '#E6EDF3',
-  textMid: '#C9D1D9',
-  sub:     '#8B949E',
-  border:  '#30363D',
-  divider: '#21262D',
-  input:   '#0D1117',
-  nav:     '#161B22',
-  header:  '#161B22',
+  bg:      '#12102B',
+  card:    '#1E1B3A',
+  cardAlt: '#161430',
+  text:    '#F0EDFF',
+  textMid: '#C8C3E8',
+  sub:     '#9B98C0',
+  border:  'rgba(123,97,255,0.2)',
+  divider: 'rgba(123,97,255,0.1)',
+  input:   '#12102B',
+  nav:     '#1E1B3A',
+  header:  '#1E1B3A',
+  tabBg:   '#1E1B3A',
 };
 
 export const t = (isDark: boolean) => (isDark ? DK : LT);
 
 // ─── Typography ──────────────────────────────────────────────────────────────
 export const TYPE = {
-  hero:    { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.5 },
-  title:   { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.3 },
+  hero:    { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.5, color: C.navy },
+  title:   { fontSize: 22, fontWeight: '800' as const, letterSpacing: -0.4, color: C.navy },
   heading: { fontSize: 17, fontWeight: '700' as const, letterSpacing: -0.2 },
   body:    { fontSize: 14, fontWeight: '400' as const },
   bodyMd:  { fontSize: 14, fontWeight: '600' as const },
-  label:   { fontSize: 12, fontWeight: '600' as const, letterSpacing: 0.3 },
-  caption: { fontSize: 11, fontWeight: '500' as const, letterSpacing: 0.2 },
-  micro:   { fontSize: 10, fontWeight: '600' as const, letterSpacing: 0.5 },
+  label:   { fontSize: 11, fontWeight: '700' as const, letterSpacing: 0.6, textTransform: 'uppercase' as const },
+  caption: { fontSize: 12, fontWeight: '500' as const },
+  micro:   { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.5 },
 };
 
 // ─── Radius ───────────────────────────────────────────────────────────────────
-export const R = { xs: 6, sm: 10, md: 14, lg: 18, xl: 24, full: 9999 };
+export const R = { xs: 8, sm: 12, md: 16, lg: 20, xl: 24, xxl: 28, pill: 9999 };
 
 // ─── Spacing ─────────────────────────────────────────────────────────────────
-export const S = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28, xxxl: 40 };
+export const S = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28 };
 
-// ─── Shadows ─────────────────────────────────────────────────────────────────
+// ─── Purple-tinted shadows ────────────────────────────────────────────────────
 export const SHADOW = {
-  xs: Platform.select({
-    ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4 },
-    android: { elevation: 1 },
+  card: Platform.select({
+    ios:     { shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 16 },
+    android: { elevation: 4 },
     default: {},
   }),
   sm: Platform.select({
-    ios:     { shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8 },
-    android: { elevation: 3 },
-    default: {},
-  }),
-  md: Platform.select({
-    ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 16 },
-    android: { elevation: 5 },
-    default: {},
-  }),
-  card: Platform.select({
-    ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10 },
+    ios:     { shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
     android: { elevation: 2 },
     default: {},
   }),
-};
-
-// ─── Shared component styles (returned fresh so StyleSheet can process them) ──
-export const sharedStyles = (isDark: boolean) => {
-  const th = t(isDark);
-  return {
-    // Page
-    safe:   { flex: 1, backgroundColor: th.bg },
-    screen: { flex: 1, backgroundColor: th.bg },
-
-    // Header bar
-    headerBar: {
-      flexDirection: 'row' as const, alignItems: 'center' as const,
-      paddingHorizontal: S.lg, paddingVertical: S.md,
-      backgroundColor: th.header, borderBottomWidth: 1, borderBottomColor: th.border,
-      ...SHADOW.xs,
-    },
-
-    // Cards
-    card: {
-      backgroundColor: th.card, borderRadius: R.lg, padding: S.lg,
-      borderWidth: 1, borderColor: th.border, ...SHADOW.card,
-    },
-    cardSm: {
-      backgroundColor: th.card, borderRadius: R.md, padding: S.md,
-      borderWidth: 1, borderColor: th.border, ...SHADOW.xs,
-    },
-
-    // Inputs
-    input: {
-      backgroundColor: th.input, borderWidth: 1, borderColor: th.border,
-      borderRadius: R.sm, paddingHorizontal: S.md, paddingVertical: 11,
-      color: th.text, fontSize: 14,
-    },
-
-    // Select trigger
-    trigger: {
-      flexDirection: 'row' as const, alignItems: 'center' as const,
-      backgroundColor: th.input, borderWidth: 1, borderColor: th.border,
-      borderRadius: R.sm, paddingHorizontal: S.md, paddingVertical: 11,
-    },
-
-    // Buttons
-    btnPrimary: {
-      backgroundColor: C.primary, borderRadius: R.sm,
-      paddingVertical: 13, alignItems: 'center' as const, justifyContent: 'center' as const,
-    },
-    btnOutline: {
-      borderWidth: 1.5, borderColor: C.primary, borderRadius: R.sm,
-      paddingVertical: 12, alignItems: 'center' as const, justifyContent: 'center' as const,
-    },
-    btnDanger: {
-      borderWidth: 1.5, borderColor: C.danger, borderRadius: R.sm,
-      paddingVertical: 12, alignItems: 'center' as const, justifyContent: 'center' as const,
-    },
-
-    // Labels
-    label: { fontSize: 12, fontWeight: '600' as const, color: th.sub, marginBottom: 5, letterSpacing: 0.2 },
-
-    // Section heading
-    sectionHead: {
-      fontSize: 13, fontWeight: '700' as const, color: th.sub,
-      letterSpacing: 0.8, textTransform: 'uppercase' as const,
-      marginBottom: S.sm, marginTop: S.lg,
-    },
-
-    // Divider
-    divider: { height: 1, backgroundColor: th.divider, marginVertical: S.sm },
-
-    // Badge
-    badge: (color: string) => ({
-      paddingHorizontal: 9, paddingVertical: 3, borderRadius: R.full,
-      backgroundColor: color + '20',
-    }),
-  };
+  lg: Platform.select({
+    ios:     { shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 24 },
+    android: { elevation: 8 },
+    default: {},
+  }),
+  btn: Platform.select({
+    ios:     { shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14 },
+    android: { elevation: 6 },
+    default: {},
+  }),
 };

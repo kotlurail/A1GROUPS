@@ -172,8 +172,8 @@ function DatePickerField({
   const dateObj = isValidDate(value) ? new Date(value + 'T12:00:00') : new Date();
 
   const baseStyle = {
-    backgroundColor: '#f4f6fb', borderRadius: 10, borderWidth: 1,
-    borderColor: '#e8eaf0', overflow: 'hidden' as const,
+    backgroundColor: '#F7F5FF', borderRadius: 10, borderWidth: 1,
+    borderColor: 'rgba(123,97,255,0.15)', overflow: 'hidden' as const,
   };
 
   if (Platform.OS === 'web') {
@@ -185,7 +185,7 @@ function DatePickerField({
           onChange={(e: any) => onChange(e.target.value)}
           style={{
             border: 'none', background: 'transparent', fontSize: 14,
-            color: value ? '#1a1a2e' : '#aaa', width: '100%',
+            color: value ? '#1A1A2E' : '#9B98C0', width: '100%',
             padding: '10px 12px', fontFamily: 'inherit',
             outline: 'none', boxSizing: 'border-box',
           } as any}
@@ -201,7 +201,7 @@ function DatePickerField({
         onPress={() => setShow(true)}
         activeOpacity={0.7}
       >
-        <Text style={{ fontSize: 14, color: value ? '#1a1a2e' : '#aaa' }}>
+        <Text style={{ fontSize: 14, color: value ? '#1A1A2E' : '#9B98C0' }}>
           {value || 'Select date'}
         </Text>
       </TouchableOpacity>
@@ -756,15 +756,15 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
       <View style={{ flex: 1, backgroundColor: '#00000055' }}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', position: 'absolute', bottom: 0 }}>
-          <View style={{ backgroundColor: '#f4f6fb', borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: SHEET_MAX_H }}>
+          <View style={{ backgroundColor: '#EEF0FF', borderTopLeftRadius: 22, borderTopRightRadius: 22, maxHeight: SHEET_MAX_H }}>
 
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#eaecf4' }}>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e' }} numberOfLines={1}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A1A2E' }} numberOfLines={1}>
                   {mode === 'edit' ? '✏️ Edit Decor' : '🎨 Decor Details'}
                 </Text>
-                <Text style={{ fontSize: 11, color: '#888', marginTop: 1 }} numberOfLines={1}>{doc.eventName}</Text>
+                <Text style={{ fontSize: 11, color: '#9B98C0', marginTop: 1 }} numberOfLines={1}>{doc.eventName}</Text>
               </View>
               <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
                 {mode === 'view' && (
@@ -788,7 +788,7 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                   </>
                 )}
                 <TouchableOpacity onPress={onClose} style={{ padding: 6 }}>
-                  <Text style={{ color: '#aaa', fontSize: 18, fontWeight: '700' }}>✕</Text>
+                  <Text style={{ color: '#9B98C0', fontSize: 18, fontWeight: '700' }}>✕</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -807,28 +807,28 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                       >
                         {doc.images.map((uri, i) => (
                           <TouchableOpacity key={i} activeOpacity={0.9} onPress={() => setFullImgIdx(i)}>
-                            <Image source={{ uri }} style={{ width: SW - 32, height: 240, borderRadius: 14, backgroundColor: '#1a1a2e' }} resizeMode="contain" />
+                            <Image source={{ uri }} style={{ width: SW - 32, height: 240, borderRadius: 14, backgroundColor: '#1A1A2E' }} resizeMode="contain" />
                           </TouchableOpacity>
                         ))}
                       </ScrollView>
                       {doc.images.length > 1 && (
                         <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8, gap: 6 }}>
                           {doc.images.map((_, i) => (
-                            <View key={i} style={{ width: i === activeImg ? 10 : 7, height: i === activeImg ? 10 : 7, borderRadius: 5, backgroundColor: i === activeImg ? '#6C63FF' : '#ddd' }} />
+                            <View key={i} style={{ width: i === activeImg ? 10 : 7, height: i === activeImg ? 10 : 7, borderRadius: 5, backgroundColor: i === activeImg ? '#7B61FF' : 'rgba(123,97,255,0.2)' }} />
                           ))}
                         </View>
                       )}
                     </View>
                   )}
                   {doc.images.length === 0 && (
-                    <View style={{ backgroundColor: '#f8f8fc', borderRadius: 12, borderWidth: 1, borderColor: '#e8eaf0', padding: 20, alignItems: 'center', marginBottom: 14 }}>
+                    <View style={{ backgroundColor: '#f8f8fc', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)', padding: 20, alignItems: 'center', marginBottom: 14 }}>
                       <Text style={{ fontSize: 24, marginBottom: 4 }}>🖼</Text>
-                      <Text style={{ fontSize: 12, color: '#aaa' }}>No images added to this decor</Text>
+                      <Text style={{ fontSize: 12, color: '#9B98C0' }}>No images added to this decor</Text>
                     </View>
                   )}
 
                   {/* Info table */}
-                  <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e8eaf0', marginBottom: 14, overflow: 'hidden' }}>
+                  <View style={{ backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)', marginBottom: 14, overflow: 'hidden' }}>
                     {[
                       ['Event Name', doc.eventName],
                       ['Customer',   doc.customerName],
@@ -839,8 +839,8 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                       ['Created',    fmtDateStr(doc.createdDate)],
                     ].map(([label, value], idx) => (
                       <View key={label} style={{ flexDirection: 'row', padding: 10, borderTopWidth: idx > 0 ? 1 : 0, borderTopColor: '#f4f4f4' }}>
-                        <Text style={{ flex: 1, fontSize: 12, color: '#888', fontWeight: '600' }}>{label}</Text>
-                        <Text style={{ flex: 2, fontSize: 13, color: '#1a1a2e', fontWeight: '500' }}>{value}</Text>
+                        <Text style={{ flex: 1, fontSize: 12, color: '#9B98C0', fontWeight: '600' }}>{label}</Text>
+                        <Text style={{ flex: 2, fontSize: 13, color: '#1A1A2E', fontWeight: '500' }}>{value}</Text>
                       </View>
                     ))}
                   </View>
@@ -848,8 +848,8 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                   {/* Decor items */}
                   {doc.decorItems.length > 0 && (
                     <>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Decor Items</Text>
-                      <View style={{ backgroundColor: '#fff', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#e8eaf0', marginBottom: 14 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1A2E', marginBottom: 8 }}>Decor Items</Text>
+                      <View style={{ backgroundColor: '#fff', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)', marginBottom: 14 }}>
                         <View style={{ flexDirection: 'row', backgroundColor: '#f5f5fb', padding: 8 }}>
                           {['ITEM','QTY','RATE','TOTAL'].map((h, i) => (
                             <Text key={h} style={{ flex: i === 0 ? 3 : i === 1 ? 1 : 2, fontSize: 11, fontWeight: '700', color: '#555', textAlign: i > 0 ? 'right' : 'left' }}>{h}</Text>
@@ -864,7 +864,7 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                           </View>
                         ))}
                         <View style={{ flexDirection: 'row', padding: 10, borderTopWidth: 2, borderTopColor: '#e0e0f0', backgroundColor: '#f9f9ff' }}>
-                          <Text style={{ flex: 6, fontSize: 13, fontWeight: '700', color: '#1a1a2e' }}>Total</Text>
+                          <Text style={{ flex: 6, fontSize: 13, fontWeight: '700', color: '#1A1A2E' }}>Total</Text>
                           <Text style={{ flex: 2, fontSize: 13, fontWeight: '800', color: '#8e44ad', textAlign: 'right' }}>{fmtMoney(dTotal)}</Text>
                         </View>
                       </View>
@@ -874,12 +874,12 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                   {/* Required items */}
                   {doc.requiredItems.length > 0 && (
                     <>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Items Required</Text>
-                      <View style={{ backgroundColor: '#fff', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#e8eaf0', marginBottom: 14 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1A2E', marginBottom: 8 }}>Items Required</Text>
+                      <View style={{ backgroundColor: '#fff', borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)', marginBottom: 14 }}>
                         {doc.requiredItems.map((item, i) => (
                           <View key={item._id ?? i} style={{ flexDirection: 'row', alignItems: 'center', padding: 10, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: '#f0f0f0' }}>
                             <Text style={{ flex: 2, fontSize: 12, color: '#333' }}>{item.name}</Text>
-                            <Text style={{ width: 36, fontSize: 12, color: '#888', textAlign: 'center' }}>×{item.quantity}</Text>
+                            <Text style={{ width: 36, fontSize: 12, color: '#9B98C0', textAlign: 'center' }}>×{item.quantity}</Text>
                             <Text style={{ flex: 3, fontSize: 12, color: '#777' }}>{item.description || '—'}</Text>
                           </View>
                         ))}
@@ -888,7 +888,7 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                   )}
 
                   {/* Payment tiles */}
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Payment</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1A2E', marginBottom: 8 }}>Payment</Text>
                   <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
                     {([
                       ['Total',   fmtMoney(dTotal),              '#8e44ad'],
@@ -896,15 +896,15 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                       ['Settled', fmtMoney(doc.settledAmount),   '#27ae60'],
                       ['Balance', fmtMoney(dBal),                dBal > 0 ? '#e74c3c' : '#27ae60'],
                     ] as [string, string, string][]).map(([lbl, val, col]) => (
-                      <View key={lbl} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 10, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: '#e8eaf0' }}>
-                        <Text style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>{lbl}</Text>
+                      <View key={lbl} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 10, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' }}>
+                        <Text style={{ fontSize: 9, color: '#9B98C0', marginBottom: 2 }}>{lbl}</Text>
                         <Text style={{ fontSize: 12, fontWeight: '800', color: col }}>{val}</Text>
                       </View>
                     ))}
                   </View>
 
                   {/* Payment status */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#e8eaf0', marginBottom: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)', marginBottom: 14 }}>
                     <Text style={{ flex: 1, fontSize: 13, color: '#555' }}>Payment Status</Text>
                     <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: sc + '20' }}>
                       <Text style={{ fontSize: 13, fontWeight: '700', color: sc, textTransform: 'capitalize' }}>{doc.paymentStatus}</Text>
@@ -912,8 +912,8 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                   </View>
 
                   {!!doc.comments && (
-                    <View style={{ backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#e8eaf0', marginBottom: 14 }}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#aaa', marginBottom: 4 }}>NOTES</Text>
+                    <View style={{ backgroundColor: '#fff', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)', marginBottom: 14 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: '#9B98C0', marginBottom: 4 }}>NOTES</Text>
                       <Text style={{ fontSize: 13, color: '#444', fontStyle: 'italic' }}>"{doc.comments}"</Text>
                     </View>
                   )}
@@ -929,7 +929,7 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                     {images.map((uri, i) => (
                       <View key={i} style={{ marginRight: 8, position: 'relative' }}>
                         <TouchableOpacity activeOpacity={0.85} onPress={() => setFullImgIdx(i)}>
-                          <Image source={{ uri }} style={{ width: 90, height: 90, borderRadius: 12, backgroundColor: '#1a1a2e' }} resizeMode="contain" />
+                          <Image source={{ uri }} style={{ width: 90, height: 90, borderRadius: 12, backgroundColor: '#1A1A2E' }} resizeMode="contain" />
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={() => removeImage(i)}
@@ -941,10 +941,10 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                     ))}
                     <TouchableOpacity
                       onPress={pickImages} disabled={uploading}
-                      style={{ width: 90, height: 90, borderRadius: 12, borderWidth: 2, borderColor: '#6C63FF', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6C63FF08' }}
+                      style={{ width: 90, height: 90, borderRadius: 12, borderWidth: 2, borderColor: '#7B61FF', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(123,97,255,0.04)' }}
                     >
-                      <Text style={{ fontSize: 26, color: '#6C63FF', fontWeight: '300' }}>{uploading ? '…' : '+'}</Text>
-                      <Text style={{ fontSize: 10, color: '#6C63FF', fontWeight: '700', marginTop: 2 }}>{uploading ? 'Uploading…' : 'Add Photos'}</Text>
+                      <Text style={{ fontSize: 26, color: '#7B61FF', fontWeight: '300' }}>{uploading ? '…' : '+'}</Text>
+                      <Text style={{ fontSize: 10, color: '#7B61FF', fontWeight: '700', marginTop: 2 }}>{uploading ? 'Uploading…' : 'Add Photos'}</Text>
                     </TouchableOpacity>
                   </ScrollView>
 
@@ -983,10 +983,10 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                   <Text style={{ fontSize: 13, fontWeight: '700', color: '#555', marginBottom: 8 }}>Decor Items</Text>
 
                   {decorItems.map((item, idx) => (
-                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, padding: 10, marginBottom: 6, borderWidth: 1, borderColor: '#e8eaf0' }}>
+                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, padding: 10, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' }}>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1a1a2e' }}>{item.name}</Text>
-                        <Text style={{ fontSize: 11, color: '#888' }}>{item.quantity} × {fmtMoney(item.costPerUnit)} = {fmtMoney(item.quantity * item.costPerUnit)}</Text>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A2E' }}>{item.name}</Text>
+                        <Text style={{ fontSize: 11, color: '#9B98C0' }}>{item.quantity} × {fmtMoney(item.costPerUnit)} = {fmtMoney(item.quantity * item.costPerUnit)}</Text>
                       </View>
                       <TouchableOpacity onPress={() => removeDecorItem(idx)} style={{ padding: 6, borderRadius: 6, backgroundColor: '#e74c3c12' }}>
                         <Text style={{ color: '#e74c3c', fontSize: 13 }}>✕</Text>
@@ -995,7 +995,7 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                   ))}
 
                   <View style={{ backgroundColor: '#f9f9ff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#e0e0f0', marginBottom: 10 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', marginBottom: 6 }}>ADD ITEM</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#9B98C0', marginBottom: 6 }}>ADD ITEM</Text>
                     <TextInput style={[det.input, { marginBottom: 6 }]} value={newItemName} onChangeText={setNewItemName} placeholder="Item name" />
                     <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
                       <TextInput style={[det.input, { flex: 1 }]} value={newItemQty} onChangeText={setNewItemQty} placeholder="Qty" keyboardType="number-pad" />
@@ -1016,10 +1016,10 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                   <Text style={{ fontSize: 13, fontWeight: '700', color: '#555', marginBottom: 8 }}>Items Required</Text>
 
                   {reqItems.map((item, idx) => (
-                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, padding: 10, marginBottom: 6, borderWidth: 1, borderColor: '#e8eaf0' }}>
+                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, padding: 10, marginBottom: 6, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' }}>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1a1a2e' }}>{item.name} ×{item.quantity}</Text>
-                        {!!item.description && <Text style={{ fontSize: 11, color: '#888' }}>{item.description}</Text>}
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A2E' }}>{item.name} ×{item.quantity}</Text>
+                        {!!item.description && <Text style={{ fontSize: 11, color: '#9B98C0' }}>{item.description}</Text>}
                       </View>
                       <TouchableOpacity onPress={() => removeReqItem(idx)} style={{ padding: 6, borderRadius: 6, backgroundColor: '#e74c3c12' }}>
                         <Text style={{ color: '#e74c3c', fontSize: 13 }}>✕</Text>
@@ -1028,7 +1028,7 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                   ))}
 
                   <View style={{ backgroundColor: '#f9f9ff', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#e0e0f0', marginBottom: 14 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', marginBottom: 6 }}>ADD REQUIRED ITEM</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#9B98C0', marginBottom: 6 }}>ADD REQUIRED ITEM</Text>
                     <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
                       <TextInput style={[det.input, { flex: 2 }]} value={newReqName} onChangeText={setNewReqName} placeholder="Item name" />
                       <TextInput style={[det.input, { flex: 1 }]} value={newReqQty} onChangeText={setNewReqQty} placeholder="Qty" keyboardType="number-pad" />
@@ -1071,7 +1071,7 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                         ['Balance',   fmtMoney(balance),     balance > 0 ? '#e74c3c' : '#27ae60'],
                       ].map(([lbl, val, col]) => (
                         <View key={lbl} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
-                          <Text style={{ fontSize: 12, color: '#888' }}>{lbl}</Text>
+                          <Text style={{ fontSize: 12, color: '#9B98C0' }}>{lbl}</Text>
                           <Text style={{ fontSize: 13, fontWeight: '700', color: col }}>{val}</Text>
                         </View>
                       ))}
@@ -1082,7 +1082,7 @@ function DecorDetailSheet({ decor: init, initialMode = 'view', onClose, onSaved 
                   <TextInput style={[det.input, { height: 80, textAlignVertical: 'top', marginBottom: 16 }]}
                     value={comments} onChangeText={setComments} placeholder="Any notes about this decor…" multiline />
 
-                  <TouchableOpacity style={[det.saveBtn, { backgroundColor: saving ? '#aaa' : '#27ae60', marginBottom: 10 }]} onPress={handleSave} disabled={saving}>
+                  <TouchableOpacity style={[det.saveBtn, { backgroundColor: saving ? '#9B98C0' : '#27ae60', marginBottom: 10 }]} onPress={handleSave} disabled={saving}>
                     <Text style={det.saveTxt}>{saving ? 'Saving…' : '✓ Save Changes'}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={det.closeBtn} onPress={() => setMode('view')}>
@@ -1682,7 +1682,7 @@ function BookingDetailModal({
                       maxLength={5}
                     />
                   </View>
-                  <TouchableOpacity style={[det.saveBtn, { marginTop: 10, backgroundColor: editingPaymentId ? '#f39c12' : '#6C63FF' }]} onPress={addPayment}>
+                  <TouchableOpacity style={[det.saveBtn, { marginTop: 10, backgroundColor: editingPaymentId ? '#f39c12' : '#7B61FF' }]} onPress={addPayment}>
                     <Text style={det.saveTxt}>{editingPaymentId ? '✓  Update Payment' : '+ Add Payment'}</Text>
                   </TouchableOpacity>
                 </View>
@@ -1865,7 +1865,7 @@ function BookingDetailModal({
                     {/* Header row */}
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 }}>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontWeight: '800', color: '#1a1a2e', fontSize: 15 }} numberOfLines={1}>{d.eventName}</Text>
+                        <Text style={{ fontWeight: '800', color: '#1A1A2E', fontSize: 15 }} numberOfLines={1}>{d.eventName}</Text>
                         <Text style={{ color: '#666', fontSize: 12, marginTop: 1 }}>{d.customerName}  ·  {d.mobile}</Text>
                       </View>
                       <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: sc + '20', marginLeft: 8 }}>
@@ -1910,7 +1910,7 @@ function BookingDetailModal({
 
                     {/* Decor items list */}
                     {d.decorItems.length > 0 && (
-                      <View style={{ marginBottom: 10, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#e8eaf0' }}>
+                      <View style={{ marginBottom: 10, backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' }}>
                         <View style={{ flexDirection: 'row', backgroundColor: '#f5f5fb', padding: 8 }}>
                           <Text style={{ flex: 3, fontSize: 11, fontWeight: '700', color: '#555' }}>ITEM</Text>
                           <Text style={{ flex: 1, fontSize: 11, fontWeight: '700', color: '#555', textAlign: 'right' }}>QTY</Text>
@@ -1936,8 +1936,8 @@ function BookingDetailModal({
                         ['Settled',      fmtMoney(d.settledAmount),   '#27ae60'],
                         ['Balance',      fmtMoney(balance), balance > 0 ? '#e74c3c' : '#27ae60'],
                       ].map(([lbl, val, col]) => (
-                        <View key={lbl as string} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 7, alignItems: 'center', borderWidth: 1, borderColor: '#e8eaf0' }}>
-                          <Text style={{ fontSize: 9, color: '#888', marginBottom: 2 }}>{lbl}</Text>
+                        <View key={lbl as string} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 7, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' }}>
+                          <Text style={{ fontSize: 9, color: '#9B98C0', marginBottom: 2 }}>{lbl}</Text>
                           <Text style={{ fontSize: 12, fontWeight: '800', color: col as string }}>{val}</Text>
                         </View>
                       ))}
@@ -2166,7 +2166,7 @@ function BookingDetailModal({
                     <View key={p.id} style={det.finBRow}>
                       <View style={{ flex: 1 }}>
                         <Text style={det.finBLabel}>{MODE_ICON[p.mode]}  {p.mode}</Text>
-                        <Text style={{ fontSize: 11, color: '#aaa', marginTop: 1 }}>{p.date}  ·  {p.time}</Text>
+                        <Text style={{ fontSize: 11, color: '#9B98C0', marginTop: 1 }}>{p.date}  ·  {p.time}</Text>
                       </View>
                       <Text style={[det.finBVal, { color: '#27ae60' }]}>{fmtMoney(p.amount)}</Text>
                     </View>
@@ -2308,11 +2308,11 @@ function BookingDetailModal({
           style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '78%', padding: 16 }}
           onStartShouldSetResponder={() => true}
         >
-          <Text style={{ fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 4 }}>Select a Decor</Text>
-          <Text style={{ fontSize: 12, color: '#888', marginBottom: 12 }}>Only decors not linked to another booking are shown</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', marginBottom: 4 }}>Select a Decor</Text>
+          <Text style={{ fontSize: 12, color: '#9B98C0', marginBottom: 12 }}>Only decors not linked to another booking are shown</Text>
           <TextInput
-            style={{ backgroundColor: '#f4f6fb', borderRadius: 10, borderWidth: 1, borderColor: '#e2e5f0', padding: 10, marginBottom: 10, fontSize: 14, color: '#1a1a2e' }}
-            placeholder="Search event, customer, mobile…" placeholderTextColor="#aaa"
+            style={{ backgroundColor: '#F7F5FF', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)', padding: 10, marginBottom: 10, fontSize: 14, color: '#1A1A2E' }}
+            placeholder="Search event, customer, mobile…" placeholderTextColor="#9B98C0"
             value={decorPickerSearch} onChangeText={setDecorPickerSearch} autoFocus
           />
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -2326,10 +2326,10 @@ function BookingDetailModal({
                   d.mobile.includes(q);
               });
               if (available.length === 0) {
-                return <Text style={{ color: '#aaa', textAlign: 'center', padding: 24 }}>No decors available to link</Text>;
+                return <Text style={{ color: '#9B98C0', textAlign: 'center', padding: 24 }}>No decors available to link</Text>;
               }
               if (filtered.length === 0) {
-                return <Text style={{ color: '#aaa', textAlign: 'center', padding: 24 }}>No results for "{decorPickerSearch}"</Text>;
+                return <Text style={{ color: '#9B98C0', textAlign: 'center', padding: 24 }}>No results for "{decorPickerSearch}"</Text>;
               }
               return filtered.map(d => {
                 const isLinked = linkedDecors.some(ld => ld._id === d._id);
@@ -2345,7 +2345,7 @@ function BookingDetailModal({
                     activeOpacity={isLinked ? 1 : 0.75}
                   >
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1a1a2e', flex: 1, marginRight: 8 }}>{d.eventName}</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1A2E', flex: 1, marginRight: 8 }}>{d.eventName}</Text>
                       <View style={{ backgroundColor: statusBg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
                         <Text style={{ fontSize: 10, fontWeight: '700', color: statusColor, textTransform: 'capitalize' }}>{d.paymentStatus}</Text>
                       </View>
@@ -2574,8 +2574,8 @@ export default function BookingsScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f4f6fb' }}>
-        <Text style={{ fontSize: 15, color: '#888' }}>Loading bookings…</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#EEF0FF' }}>
+        <Text style={{ fontSize: 15, color: '#9B98C0' }}>Loading bookings…</Text>
       </View>
     );
   }
@@ -2706,14 +2706,14 @@ export default function BookingsScreen() {
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container:      { flex: 1, backgroundColor: '#F4F6FB' },
+  container:      { flex: 1, backgroundColor: '#EEF0FF' },
   filterRow:      { marginTop: 4 },
   filterContent:  { paddingHorizontal: 16, gap: 8, paddingVertical: 10 },
-  chip:           { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 22, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' },
-  chipActive:     { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
-  chipText:       { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+  chip:           { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 22, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' },
+  chipActive:     { backgroundColor: '#7B61FF', borderColor: '#7B61FF' },
+  chipText:       { fontSize: 13, color: '#6E6E8D', fontWeight: '500' },
   chipTextActive: { color: '#fff', fontWeight: '700' },
-  summary:        { flexDirection: 'row', backgroundColor: '#6C63FF', marginHorizontal: 16, marginBottom: 16, borderRadius: 18, padding: 18, shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 },
+  summary:        { flexDirection: 'row', backgroundColor: '#7B61FF', marginHorizontal: 16, marginBottom: 16, borderRadius: 18, padding: 18, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 },
   summaryItem:    { flex: 1, alignItems: 'center' },
   summaryNum:     { fontSize: 14, fontWeight: '800', color: '#fff' },
   summaryLabel:   { fontSize: 10, color: 'rgba(255,255,255,0.72)', marginTop: 3, fontWeight: '500' },
@@ -2723,46 +2723,46 @@ const styles = StyleSheet.create({
   statusChipNum:  { fontSize: 21, fontWeight: '800' },
   statusChipLabel:{ fontSize: 10, fontWeight: '700', marginTop: 3, letterSpacing: 0.2 },
   sectionRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 10 },
-  sectionTitle:   { fontSize: 16, fontWeight: '700', color: '#111827', letterSpacing: -0.2 },
-  clearBtn:       { fontSize: 13, color: '#6C63FF', fontWeight: '600' },
-  empty:          { textAlign: 'center', color: '#9CA3AF', marginTop: 48, fontSize: 15, fontWeight: '500' },
-  fab:            { position: 'absolute', bottom: 28, right: 24, width: 60, height: 60, borderRadius: 30, backgroundColor: '#6C63FF', alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12 },
+  sectionTitle:   { fontSize: 16, fontWeight: '700', color: '#1A1A2E', letterSpacing: -0.2 },
+  clearBtn:       { fontSize: 13, color: '#7B61FF', fontWeight: '600' },
+  empty:          { textAlign: 'center', color: '#9B98C0', marginTop: 48, fontSize: 15, fontWeight: '500' },
+  fab:            { position: 'absolute', bottom: 28, right: 24, width: 60, height: 60, borderRadius: 30, backgroundColor: '#7B61FF', alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 12 },
   fabIcon:        { fontSize: 30, color: '#fff', lineHeight: 34 },
 });
 
 const cal = StyleSheet.create({
-  container:      { backgroundColor: '#fff', margin: 16, borderRadius: 20, padding: 18, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 10 },
+  container:      { backgroundColor: '#FFFFFF', margin: 16, borderRadius: 20, padding: 18, elevation: 2, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 10 },
   header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  navBtn:         { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  navText:        { fontSize: 18, color: '#6C63FF', fontWeight: '700' },
-  monthTitle:     { fontSize: 17, fontWeight: '800', color: '#111827', letterSpacing: -0.2 },
+  navBtn:         { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(123,97,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  navText:        { fontSize: 18, color: '#7B61FF', fontWeight: '700' },
+  monthTitle:     { fontSize: 17, fontWeight: '800', color: '#1A1A2E', letterSpacing: -0.2 },
   row:            { flexDirection: 'row' },
-  dayName:        { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700', color: '#9CA3AF', paddingVertical: 5 },
+  dayName:        { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700', color: '#9B98C0', paddingVertical: 5 },
   cell:           { flex: 1, alignItems: 'center', paddingVertical: 5, minHeight: 46 },
-  selectedCell:   { backgroundColor: '#6C63FF', borderRadius: 12 },
-  todayCell:      { backgroundColor: '#EEF2FF', borderRadius: 12 },
-  dayNum:         { fontSize: 13, color: '#374151', fontWeight: '500' },
+  selectedCell:   { backgroundColor: '#7B61FF', borderRadius: 12 },
+  todayCell:      { backgroundColor: 'rgba(123,97,255,0.1)', borderRadius: 12 },
+  dayNum:         { fontSize: 13, color: '#1A1A2E', fontWeight: '500' },
   selectedDayNum: { color: '#fff', fontWeight: '700' },
-  todayDayNum:    { color: '#6C63FF', fontWeight: '800' },
+  todayDayNum:    { color: '#7B61FF', fontWeight: '800' },
   dots:           { flexDirection: 'row', gap: 3, marginTop: 2 },
   dot:            { width: 6, height: 6, borderRadius: 3 },
   morningDot:     { backgroundColor: '#3B82F6' },
   eveningDot:     { backgroundColor: '#7C3AED' },
   legend:         { flexDirection: 'row', justifyContent: 'center', gap: 22, marginTop: 12 },
   legendItem:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendText:     { fontSize: 11, color: '#6B7280', fontWeight: '500' },
+  legendText:     { fontSize: 11, color: '#6E6E8D', fontWeight: '500' },
 });
 
 const card = StyleSheet.create({
-  container: { backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 12, borderRadius: 18, padding: 18, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10 },
+  container: { backgroundColor: '#FFFFFF', marginHorizontal: 16, marginBottom: 12, borderRadius: 18, padding: 18, elevation: 2, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 10 },
   topRow:    { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
-  venue:     { fontSize: 16, fontWeight: '800', color: '#111827', letterSpacing: -0.2 },
-  eventName: { fontSize: 13, color: '#6C63FF', fontWeight: '600', marginTop: 2 },
-  client:    { fontSize: 12, color: '#9CA3AF', marginTop: 2, fontWeight: '500' },
+  venue:     { fontSize: 16, fontWeight: '800', color: '#1A1A2E', letterSpacing: -0.2 },
+  eventName: { fontSize: 13, color: '#7B61FF', fontWeight: '600', marginTop: 2 },
+  client:    { fontSize: 12, color: '#9B98C0', marginTop: 2, fontWeight: '500' },
   badge:     { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 22 },
   badgeText: { fontSize: 11, fontWeight: '700' },
   metaRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  meta:      { fontSize: 13, color: '#6B7280', fontWeight: '500' },
+  meta:      { fontSize: 13, color: '#6E6E8D', fontWeight: '500' },
   slotBadge: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 22 },
   slotText:  { fontSize: 12, fontWeight: '600' },
   elecTag:   { fontSize: 11, color: '#D97706', marginBottom: 4, fontWeight: '600' },
@@ -2771,45 +2771,45 @@ const card = StyleSheet.create({
   benefitTag: { fontSize: 11, color: '#10B981', marginBottom: 8, fontWeight: '600' },
   finance:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, marginTop: 6 },
   finItem:   { alignItems: 'center' },
-  finLabel:  { fontSize: 11, color: '#9CA3AF', marginBottom: 3, fontWeight: '500' },
-  finValue:  { fontSize: 14, fontWeight: '700', color: '#111827' },
-  barBg:     { height: 5, backgroundColor: '#F3F4F6', borderRadius: 3, marginBottom: 4 },
+  finLabel:  { fontSize: 11, color: '#9B98C0', marginBottom: 3, fontWeight: '500' },
+  finValue:  { fontSize: 14, fontWeight: '700', color: '#1A1A2E' },
+  barBg:     { height: 5, backgroundColor: 'rgba(123,97,255,0.1)', borderRadius: 3, marginBottom: 4 },
   barFill:   { height: 5, backgroundColor: '#10B981', borderRadius: 3 },
-  barLabel:  { fontSize: 11, color: '#9CA3AF', textAlign: 'right' },
+  barLabel:  { fontSize: 11, color: '#9B98C0', textAlign: 'right' },
 });
 
 const modal = StyleSheet.create({
   backdrop:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
-  handle:    { width: 44, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
+  handle:    { width: 44, height: 4, backgroundColor: 'rgba(123,97,255,0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
 });
 
 // Detail modal styles
 const det = StyleSheet.create({
   overlay:        { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
   backdrop:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
-  sheet:          { backgroundColor: '#F4F6FB', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: SHEET_MAX_H },
-  handle:         { width: 44, height: 4, backgroundColor: '#E5E7EB', borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
+  sheet:          { backgroundColor: '#EEF0FF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: SHEET_MAX_H },
+  handle:         { width: 44, height: 4, backgroundColor: 'rgba(123,97,255,0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
 
   titleRow:       { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
-  title:          { fontSize: 21, fontWeight: '800', color: '#111827', letterSpacing: -0.3 },
-  sub:            { fontSize: 13, color: '#6B7280', marginBottom: 3, fontWeight: '500' },
+  title:          { fontSize: 21, fontWeight: '800', color: '#1A1A2E', letterSpacing: -0.3 },
+  sub:            { fontSize: 13, color: '#6E6E8D', marginBottom: 3, fontWeight: '500' },
 
-  editBtn:        { backgroundColor: '#6C63FF1A', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 9, borderWidth: 1, borderColor: '#6C63FF40' },
-  editBtnTxt:     { fontSize: 13, color: '#6C63FF', fontWeight: '700' },
+  editBtn:        { backgroundColor: 'rgba(123,97,255,0.1)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 9, borderWidth: 1, borderColor: 'rgba(123,97,255,0.25)' },
+  editBtnTxt:     { fontSize: 13, color: '#7B61FF', fontWeight: '700' },
   printBtn:       { backgroundColor: '#10B9811A', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 9, borderWidth: 1, borderColor: '#10B98140' },
   printBtnTxt:    { fontSize: 13, color: '#10B981', fontWeight: '700' },
 
   editHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   editCloseBtn:   { padding: 6 },
-  editCloseTxt:   { fontSize: 18, color: '#9CA3AF' },
+  editCloseTxt:   { fontSize: 18, color: '#9B98C0' },
 
   detRow:         { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 9 },
-  detLabel:       { fontSize: 13, color: '#9CA3AF', flex: 1, fontWeight: '500' },
-  detVal:         { fontSize: 13, color: '#111827', fontWeight: '600', flex: 2, textAlign: 'right' },
+  detLabel:       { fontSize: 13, color: '#9B98C0', flex: 1, fontWeight: '500' },
+  detVal:         { fontSize: 13, color: '#1A1A2E', fontWeight: '600', flex: 2, textAlign: 'right' },
 
-  sectionCard:    { backgroundColor: '#fff', borderRadius: 18, padding: 18, marginTop: 16, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-  sectionTitle:   { fontSize: 15, fontWeight: '800', color: '#111827', marginBottom: 5, letterSpacing: -0.2 },
-  sectionHint:    { fontSize: 11, color: '#9CA3AF', marginBottom: 14, fontWeight: '500' },
+  sectionCard:    { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18, marginTop: 16, elevation: 1, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 },
+  sectionTitle:   { fontSize: 15, fontWeight: '800', color: '#1A1A2E', marginBottom: 5, letterSpacing: -0.2 },
+  sectionHint:    { fontSize: 11, color: '#9B98C0', marginBottom: 14, fontWeight: '500' },
 
   statusBadge:    { paddingHorizontal: 13, paddingVertical: 6, borderRadius: 22 },
   statusText:     { fontSize: 12, fontWeight: '700' },
@@ -2824,27 +2824,27 @@ const det = StyleSheet.create({
   finRowTotal:    { marginTop: 4 },
   finLabel:       { fontSize: 13, color: 'rgba(255,255,255,0.65)' },
   finVal:         { fontSize: 13, color: '#fff' },
-  divider:        { height: 1, backgroundColor: '#F3F4F6', marginVertical: 6 },
+  divider:        { height: 1, backgroundColor: 'rgba(123,97,255,0.08)', marginVertical: 6 },
 
   readingRow:     { flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginBottom: 8 },
   readingArrow:   { paddingBottom: 10, paddingHorizontal: 4 },
-  arrowTxt:       { fontSize: 18, color: '#9CA3AF' },
-  inputLabel:     { fontSize: 11, color: '#9CA3AF', fontWeight: '600', marginBottom: 5 },
-  input:          { backgroundColor: '#F9FAFB', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: '#111827', borderWidth: 1, borderColor: '#E5E7EB' },
+  arrowTxt:       { fontSize: 18, color: '#9B98C0' },
+  inputLabel:     { fontSize: 11, color: '#9B98C0', fontWeight: '600', marginBottom: 5 },
+  input:          { backgroundColor: '#F7F5FF', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: '#1A1A2E', borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)' },
 
   calcBox:        { backgroundColor: '#FFF8EC', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#FCD34D' },
   calcText:       { fontSize: 13, color: '#D97706', fontWeight: '600', textAlign: 'center' },
 
-  calcHint:       { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 13, marginTop: 4, marginBottom: 4 },
-  calcHintText:   { fontSize: 12, color: '#9CA3AF', textAlign: 'center', fontStyle: 'italic' },
+  calcHint:       { backgroundColor: '#F7F5FF', borderRadius: 12, padding: 13, marginTop: 4, marginBottom: 4 },
+  calcHintText:   { fontSize: 12, color: '#9B98C0', textAlign: 'center', fontStyle: 'italic' },
 
   calcCard:       { backgroundColor: '#FFF8EC', borderRadius: 14, padding: 16, marginTop: 10, borderWidth: 1, borderColor: '#FCD34D' },
   calcRow:        { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
-  calcLabel:      { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
-  calcValue:      { fontSize: 13, color: '#111827', fontWeight: '500' },
+  calcLabel:      { fontSize: 13, color: '#9B98C0', fontWeight: '500' },
+  calcValue:      { fontSize: 13, color: '#1A1A2E', fontWeight: '500' },
   calcDivider:    { height: 1, backgroundColor: '#FCD34D', marginVertical: 6 },
   calcTotalRow:   { borderTopWidth: 1, borderTopColor: '#F59E0B', marginTop: 2, paddingTop: 8 },
-  calcTotalLabel: { fontSize: 14, fontWeight: '800', color: '#111827' },
+  calcTotalLabel: { fontSize: 14, fontWeight: '800', color: '#1A1A2E' },
   calcTotalValue: { fontSize: 16, fontWeight: '800', color: '#10B981' },
 
   savedBadge:     { backgroundColor: '#10B9811A', borderRadius: 10, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#10B98140' },
@@ -2855,42 +2855,42 @@ const det = StyleSheet.create({
   decorPageTxt:   { fontSize: 12, color: '#7C3AED', fontWeight: '700' },
   decorCalcCard:  { backgroundColor: '#F5F3FF', borderRadius: 14, padding: 16, marginTop: 10, borderWidth: 1, borderColor: '#DDD6FE' },
 
-  finSummaryCard:  { backgroundColor: '#111827', borderRadius: 18, padding: 22, marginTop: 16 },
+  finSummaryCard:  { backgroundColor: '#1A1A2E', borderRadius: 18, padding: 22, marginTop: 16 },
   finSummaryTitle: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 16, letterSpacing: -0.2 },
   finDivider:      { height: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginVertical: 10 },
   finTotalLabel:   { fontSize: 14, fontWeight: '800', color: '#fff' },
   finTotalVal:     { fontSize: 16, fontWeight: '800', color: '#fff' },
   finSectionLabel: { fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 5 },
 
-  saveBtn:        { backgroundColor: '#6C63FF', borderRadius: 12, paddingVertical: 12, alignItems: 'center', flex: 1 },
+  saveBtn:        { backgroundColor: '#7B61FF', borderRadius: 12, paddingVertical: 12, alignItems: 'center', flex: 1 },
   saveTxt:        { color: '#fff', fontWeight: '700', fontSize: 13 },
-  ghostBtn:       { borderRadius: 12, paddingVertical: 12, alignItems: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: '#E5E7EB' },
-  ghostTxt:       { color: '#9CA3AF', fontWeight: '600', fontSize: 13 },
+  ghostBtn:       { borderRadius: 12, paddingVertical: 12, alignItems: 'center', paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(123,97,255,0.2)' },
+  ghostTxt:       { color: '#9B98C0', fontWeight: '600', fontSize: 13 },
 
   expList:        { marginBottom: 14 },
-  expItem:        { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  expTitle:       { flex: 1, fontSize: 13, color: '#111827', fontWeight: '500' },
+  expItem:        { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(123,97,255,0.08)' },
+  expTitle:       { flex: 1, fontSize: 13, color: '#1A1A2E', fontWeight: '500' },
   expAmount:      { fontSize: 13, fontWeight: '700', color: '#EF4444', marginRight: 10 },
   expDel:         { padding: 4 },
-  expDelTxt:      { fontSize: 12, color: '#D1D5DB' },
+  expDelTxt:      { fontSize: 12, color: 'rgba(123,97,255,0.3)' },
   expTotal:       { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 10, marginTop: 4 },
-  expTotalLabel:  { fontSize: 13, fontWeight: '700', color: '#111827' },
+  expTotalLabel:  { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
   expTotalVal:    { fontSize: 13, fontWeight: '700', color: '#EF4444' },
   expInputRow:    { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  emptyHint:      { fontSize: 12, color: '#9CA3AF', marginBottom: 14, fontStyle: 'italic' },
+  emptyHint:      { fontSize: 12, color: '#9B98C0', marginBottom: 14, fontStyle: 'italic' },
 
-  closeBtn:       { backgroundColor: '#111827', borderRadius: 16, paddingVertical: 15, alignItems: 'center', marginTop: 18 },
+  closeBtn:       { backgroundColor: '#1A1A2E', borderRadius: 16, paddingVertical: 15, alignItems: 'center', marginTop: 18 },
   closeTxt:       { color: '#fff', fontWeight: '700', fontSize: 16 },
 
   // Transaction Summary — charges/payments blocks
-  finBlockLabel:  { fontSize: 10, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 7 },
-  finBlock:       { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+  finBlockLabel:  { fontSize: 10, fontWeight: '700', color: '#9B98C0', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 7 },
+  finBlock:       { backgroundColor: '#F7F5FF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' },
   finBRow:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 6 },
-  finBLabel:      { fontSize: 12, color: '#6B7280', flex: 1, paddingRight: 8, fontWeight: '500' },
-  finBVal:        { fontSize: 13, fontWeight: '600', color: '#111827' },
-  finBTotalRow:   { borderTopWidth: 1, borderTopColor: '#E5E7EB', marginTop: 4, paddingTop: 10 },
-  finBTotalLabel: { fontSize: 13, fontWeight: '800', color: '#111827' },
-  finBTotalVal:   { fontSize: 15, fontWeight: '800', color: '#111827' },
+  finBLabel:      { fontSize: 12, color: '#6E6E8D', flex: 1, paddingRight: 8, fontWeight: '500' },
+  finBVal:        { fontSize: 13, fontWeight: '600', color: '#1A1A2E' },
+  finBTotalRow:   { borderTopWidth: 1, borderTopColor: 'rgba(123,97,255,0.15)', marginTop: 4, paddingTop: 10 },
+  finBTotalLabel: { fontSize: 13, fontWeight: '800', color: '#1A1A2E' },
+  finBTotalVal:   { fontSize: 15, fontWeight: '800', color: '#1A1A2E' },
 
   // Balance status banners
   balanceDueBox:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFF1F2', borderRadius: 16, padding: 16, marginTop: 16, borderWidth: 1, borderColor: '#FECDD3' },
@@ -2901,14 +2901,14 @@ const det = StyleSheet.create({
   fullyPaidTxt:    { fontSize: 14, fontWeight: '800', color: '#16A34A' },
 
   // Balance payment input box
-  balPayBox:   { backgroundColor: '#F9FAFB', borderRadius: 14, padding: 16, marginTop: 14, borderWidth: 1, borderColor: '#E5E7EB' },
-  balPayTitle: { fontSize: 13, fontWeight: '700', color: '#111827', marginBottom: 12 },
+  balPayBox:   { backgroundColor: '#F7F5FF', borderRadius: 14, padding: 16, marginTop: 14, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' },
+  balPayTitle: { fontSize: 13, fontWeight: '700', color: '#1A1A2E', marginBottom: 12 },
   settleBtn:   { backgroundColor: '#F59E0B', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' },
   settleTxt:   { color: '#fff', fontWeight: '700', fontSize: 13 },
 
   paidBanner:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#ECFDF5', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#A7F3D0' },
   paidBannerTxt:  { fontSize: 13, fontWeight: '700', color: '#059669', flex: 1, flexShrink: 1 },
-  paidReopenTxt:  { fontSize: 12, color: '#9CA3AF', fontWeight: '600', paddingLeft: 12 },
+  paidReopenTxt:  { fontSize: 12, color: '#9B98C0', fontWeight: '600', paddingLeft: 12 },
 
   paidTopBanner:    { backgroundColor: '#059669', borderRadius: 14, padding: 16, marginBottom: 16, alignItems: 'center' },
   paidTopBannerTxt: { color: '#fff', fontWeight: '800', fontSize: 15, letterSpacing: 0.3 },
@@ -2923,45 +2923,45 @@ const det = StyleSheet.create({
 
 const pay_s = StyleSheet.create({
   modeRow:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  modeChip:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 22, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB' },
-  modeChipActive:{ backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
-  modeTxt:       { fontSize: 12, color: '#6B7280', fontWeight: '600' },
+  modeChip:      { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 22, backgroundColor: '#F7F5FF', borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)' },
+  modeChipActive:{ backgroundColor: '#7B61FF', borderColor: '#7B61FF' },
+  modeTxt:       { fontSize: 12, color: '#6E6E8D', fontWeight: '600' },
   modeTxtActive: { color: '#fff' },
   dtRow:         { flexDirection: 'row', gap: 8, marginTop: 10 },
 
-  payItem:       { backgroundColor: '#F9FAFB', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+  payItem:       { backgroundColor: '#F7F5FF', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' },
   payTopRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 },
   payMode:       { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  payModeText:   { fontSize: 13, fontWeight: '700', color: '#111827' },
+  payModeText:   { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
   payAmount:     { fontSize: 15, fontWeight: '800', color: '#10B981' },
-  payMeta:       { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },
+  payMeta:       { fontSize: 11, color: '#9B98C0', fontWeight: '500' },
   payItemEditing:{ borderColor: '#F59E0B', borderWidth: 2, backgroundColor: '#FFFBEB' },
   payEdit:       { padding: 4 },
   payEditTxt:    { fontSize: 13 },
   payDel:        { padding: 4 },
-  payDelTxt:     { fontSize: 12, color: '#E5E7EB' },
+  payDelTxt:     { fontSize: 12, color: 'rgba(123,97,255,0.3)' },
   editBanner:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFBEB', borderRadius: 10, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: '#FCD34D' },
   editBannerTxt: { fontSize: 12, color: '#D97706', fontWeight: '600', flex: 1 },
   editBannerCancel: { fontSize: 12, color: '#EF4444', fontWeight: '700', paddingLeft: 10 },
 
-  totalRow:      { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, marginTop: 6, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
-  totalLabel:    { fontSize: 13, fontWeight: '700', color: '#111827' },
+  totalRow:      { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, marginTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(123,97,255,0.15)' },
+  totalLabel:    { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
   totalVal:      { fontSize: 14, fontWeight: '800', color: '#10B981' },
 });
 
 const form_s = StyleSheet.create({
-  sheet:           { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, maxHeight: SHEET_MAX_H },
-  title:           { fontSize: 21, fontWeight: '800', color: '#111827', marginBottom: 22, letterSpacing: -0.3 },
-  label:           { fontSize: 11, fontWeight: '700', color: '#9CA3AF', marginTop: 16, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8 },
-  input:           { backgroundColor: '#F9FAFB', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, fontSize: 14, color: '#111827', borderWidth: 1, borderColor: '#E5E7EB' },
+  sheet:           { backgroundColor: '#FFFFFF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, maxHeight: SHEET_MAX_H },
+  title:           { fontSize: 21, fontWeight: '800', color: '#1A1A2E', marginBottom: 22, letterSpacing: -0.3 },
+  label:           { fontSize: 11, fontWeight: '700', color: '#9B98C0', marginTop: 16, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8 },
+  input:           { backgroundColor: '#F7F5FF', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, fontSize: 14, color: '#1A1A2E', borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)' },
   toggle:          { flexDirection: 'row', gap: 10 },
-  toggleBtn:       { flex: 1, paddingVertical: 11, borderRadius: 12, backgroundColor: '#F9FAFB', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
-  toggleBtnActive: { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
-  toggleTxt:       { fontSize: 13, color: '#6B7280', fontWeight: '600' },
+  toggleBtn:       { flex: 1, paddingVertical: 11, borderRadius: 12, backgroundColor: '#F7F5FF', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)' },
+  toggleBtnActive: { backgroundColor: '#7B61FF', borderColor: '#7B61FF' },
+  toggleTxt:       { fontSize: 13, color: '#6E6E8D', fontWeight: '600' },
   toggleTxtActive: { color: '#fff' },
   actions:         { flexDirection: 'row', gap: 12, marginTop: 26 },
-  cancelBtn:       { flex: 1, paddingVertical: 15, borderRadius: 14, backgroundColor: '#F9FAFB', alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
-  cancelTxt:       { fontSize: 15, color: '#6B7280', fontWeight: '600' },
-  saveBtn:         { flex: 2, paddingVertical: 15, borderRadius: 14, backgroundColor: '#6C63FF', alignItems: 'center' },
+  cancelBtn:       { flex: 1, paddingVertical: 15, borderRadius: 14, backgroundColor: '#F7F5FF', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)' },
+  cancelTxt:       { fontSize: 15, color: '#6E6E8D', fontWeight: '600' },
+  saveBtn:         { flex: 2, paddingVertical: 15, borderRadius: 14, backgroundColor: '#7B61FF', alignItems: 'center' },
   saveTxt:         { fontSize: 15, color: '#fff', fontWeight: '700' },
 });

@@ -163,19 +163,19 @@ if (Platform.OS !== 'web') {
 function DatePickerField({ value, onChange, style }: { value: string; onChange: (d: string) => void; style?: any }) {
   const [show, setShow] = useState(false);
   const dateObj = isValidDate(value) ? new Date(value + 'T12:00:00') : new Date();
-  const base = { backgroundColor: '#f4f6fb', borderRadius: 10, borderWidth: 1, borderColor: '#e2e5f0', overflow: 'hidden' as const };
+  const base = { backgroundColor: '#F7F5FF', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)', overflow: 'hidden' as const };
   if (Platform.OS === 'web') {
     return (
       <View style={[base, style]}>
         <input type="date" value={value} onChange={(e: any) => onChange(e.target.value)}
-          style={{ border: 'none', background: 'transparent', fontSize: 14, color: value ? '#1a1a2e' : '#aaa', width: '100%', padding: '10px 12px', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' } as any} />
+          style={{ border: 'none', background: 'transparent', fontSize: 14, color: value ? '#1A1A2E' : '#9B98C0', width: '100%', padding: '10px 12px', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' } as any} />
       </View>
     );
   }
   return (
     <>
       <TouchableOpacity style={[base, { paddingHorizontal: 12, paddingVertical: 12 }, style]} onPress={() => setShow(true)} activeOpacity={0.7}>
-        <Text style={{ fontSize: 14, color: value ? '#1a1a2e' : '#aaa' }}>{value || 'Select date'}</Text>
+        <Text style={{ fontSize: 14, color: value ? '#1A1A2E' : '#9B98C0' }}>{value || 'Select date'}</Text>
       </TouchableOpacity>
       {show && RNDateTimePicker && (
         <RNDateTimePicker value={dateObj} mode="date" display="default"
@@ -198,19 +198,19 @@ function SelectField({ value, options, onChange, placeholder, style }: {
   return (
     <>
       <TouchableOpacity style={[sel.trigger, style]} onPress={() => setOpen(true)} activeOpacity={0.8}>
-        <Text style={[sel.triggerTxt, !value && { color: '#aaa' }]} numberOfLines={1}>{value || (placeholder ?? 'Select...')}</Text>
+        <Text style={[sel.triggerTxt, !value && { color: '#9B98C0' }]} numberOfLines={1}>{value || (placeholder ?? 'Select...')}</Text>
         <Text style={sel.arrow}>&#9660;</Text>
       </TouchableOpacity>
       <Modal transparent animationType="fade" visible={open} onRequestClose={() => { setOpen(false); setSearch(''); }}>
         <TouchableOpacity style={sel.overlay} onPress={() => { setOpen(false); setSearch(''); }} activeOpacity={1}>
           <View style={sel.sheet}>
-            <TextInput style={sel.search} placeholder="Search..." value={search} onChangeText={setSearch} autoFocus placeholderTextColor="#aaa" />
+            <TextInput style={sel.search} placeholder="Search..." value={search} onChangeText={setSearch} autoFocus placeholderTextColor="#9B98C0" />
             <ScrollView style={{ maxHeight: Math.min(320, SH * 0.45) }} keyboardShouldPersistTaps="handled">
               {filtered.map(o => (
                 <TouchableOpacity key={o} style={[sel.option, value === o && sel.optionActive]}
                   onPress={() => { onChange(o); setOpen(false); setSearch(''); }}>
                   <Text style={[sel.optionTxt, value === o && sel.optionActiveTxt]}>{o}</Text>
-                  {value === o && <Text style={{ color: '#6C63FF', fontWeight: '700' }}>&#10003;</Text>}
+                  {value === o && <Text style={{ color: '#7B61FF', fontWeight: '700' }}>&#10003;</Text>}
                 </TouchableOpacity>
               ))}
               {filtered.length === 0 && <Text style={sel.noResult}>No results</Text>}
@@ -369,8 +369,8 @@ function DecorCard({ entry, onView, onEdit, onPrint, onDelete }: {
       </View>
 
       <View style={dc.actionRow}>
-        <TouchableOpacity style={[dc.btn, { backgroundColor: '#6C63FF22' }]} onPress={onView}>
-          <Text style={[dc.btnTxt, { color: '#6C63FF' }]}>View</Text>
+        <TouchableOpacity style={[dc.btn, { backgroundColor: 'rgba(123,97,255,0.13)' }]} onPress={onView}>
+          <Text style={[dc.btnTxt, { color: '#7B61FF' }]}>View</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[dc.btn, { backgroundColor: '#2980b922' }]} onPress={onEdit}>
           <Text style={[dc.btnTxt, { color: '#2980b9' }]}>Edit</Text>
@@ -474,7 +474,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
 
   return (
     <Modal transparent={false} animationType="slide" onRequestClose={isNew ? onClose : onClose}>
-      <View style={{ flex: 1, backgroundColor: '#f4f6fb' }}>
+      <View style={{ flex: 1, backgroundColor: '#EEF0FF' }}>
 
         {/* Navbar */}
         <View style={dmod.navbar}>
@@ -599,7 +599,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                   <TextInput style={dmod.input} placeholder="e.g. A1 Function Hall" value={entry.location} onChangeText={v => upd({ location: v })} />
 
                   {/* ── Link to Booking (optional) ── */}
-                  <Text style={dmod.label}>Link to Venue Booking <Text style={{ color: '#aaa', fontWeight: '400' }}>(Optional)</Text></Text>
+                  <Text style={dmod.label}>Link to Venue Booking <Text style={{ color: '#9B98C0', fontWeight: '400' }}>(Optional)</Text></Text>
                   {linkedBooking ? (
                     <View style={dmod.linkedBookingCard}>
                       <View style={{ flex: 1 }}>
@@ -636,13 +636,13 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                     </View>
                   ))}
                   {linkedBooking && (
-                    <View style={[dmod.infoRow, { backgroundColor: '#6C63FF10', borderRadius: 8, marginTop: 4, paddingHorizontal: 8 }]}>
+                    <View style={[dmod.infoRow, { backgroundColor: 'rgba(123,97,255,0.06)', borderRadius: 8, marginTop: 4, paddingHorizontal: 8 }]}>
                       <Text style={dmod.infoKey}>Linked Booking</Text>
                       <View style={{ flex: 2, alignItems: 'flex-end' }}>
-                        <Text style={[dmod.infoVal, { color: '#6C63FF', fontWeight: '700' }]} numberOfLines={1}>
+                        <Text style={[dmod.infoVal, { color: '#7B61FF', fontWeight: '700' }]} numberOfLines={1}>
                           {linkedBooking.venue}
                         </Text>
-                        <Text style={[dmod.infoVal, { fontSize: 11, color: '#888' }]} numberOfLines={1}>
+                        <Text style={[dmod.infoVal, { fontSize: 11, color: '#9B98C0' }]} numberOfLines={1}>
                           {linkedBooking.date}  ·  {linkedBooking.client}
                         </Text>
                       </View>
@@ -690,7 +690,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                           <TextInput style={[dmod.cellInput, { flex: 2, textAlign: 'right' }]}
                             keyboardType="number-pad" value={item.costPerUnit > 0 ? item.costPerUnit.toString() : ''}
                             onChangeText={v => updateDecorItem(item.id, { costPerUnit: Number(v) || 0 })} />
-                          <Text style={[dmod.tdCell, { flex: 2, textAlign: 'right', fontWeight: '700', color: '#1a1a2e' }]}>
+                          <Text style={[dmod.tdCell, { flex: 2, textAlign: 'right', fontWeight: '700', color: '#1A1A2E' }]}>
                             {fmtMoney(item.quantity * item.costPerUnit)}
                           </Text>
                           <TouchableOpacity onPress={() => removeDecorItem(item.id)} style={{ width: 30, alignItems: 'center' }}>
@@ -702,7 +702,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                           <Text style={[dmod.tdCell, { flex: 3 }]}>{item.name || '—'}</Text>
                           <Text style={[dmod.tdCell, { flex: 1, textAlign: 'right' }]}>{item.quantity}</Text>
                           <Text style={[dmod.tdCell, { flex: 2, textAlign: 'right' }]}>{fmtMoney(item.costPerUnit)}</Text>
-                          <Text style={[dmod.tdCell, { flex: 2, textAlign: 'right', fontWeight: '700', color: '#1a1a2e' }]}>
+                          <Text style={[dmod.tdCell, { flex: 2, textAlign: 'right', fontWeight: '700', color: '#1A1A2E' }]}>
                             {fmtMoney(item.quantity * item.costPerUnit)}
                           </Text>
                         </>
@@ -748,7 +748,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                       <Text style={[dmod.calcVal, { color: '#27ae60' }]}>- {fmtMoney(entry.advanceAmount + entry.settledAmount)}</Text>
                     </View>
                     <View style={[dmod.calcRow, dmod.calcTotalRow]}>
-                      <Text style={[dmod.calcLabel, { fontWeight: '700', color: '#1a1a2e' }]}>Remaining Balance</Text>
+                      <Text style={[dmod.calcLabel, { fontWeight: '700', color: '#1A1A2E' }]}>Remaining Balance</Text>
                       <Text style={[dmod.calcVal, { fontWeight: '800', fontSize: 16, color: bal > 0 ? '#e74c3c' : '#27ae60' }]}>{fmtMoney(bal)}</Text>
                     </View>
                   </View>
@@ -756,7 +756,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
               ) : (
                 <View style={dmod.payGrid}>
                   {([
-                    ['Total Cost',  fmtMoney(total),                          '#1a1a2e'],
+                    ['Total Cost',  fmtMoney(total),                          '#1A1A2E'],
                     ['Advance',     fmtMoney(entry.advanceAmount),             '#27ae60'],
                     ['Settled',     fmtMoney(entry.settledAmount),             '#27ae60'],
                     ['Balance',     fmtMoney(bal), bal > 0 ? '#e74c3c' : '#27ae60'],
@@ -813,8 +813,8 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                     ) : (
                       <>
                         <Text style={[dmod.tdCell, { flex: 2, fontWeight: '600' }]}>{r.name || '—'}</Text>
-                        <Text style={[dmod.tdCell, { flex: 1, color: '#888' }]}>x{r.quantity}</Text>
-                        <Text style={[dmod.tdCell, { flex: 2, color: '#888' }]}>{r.description || '—'}</Text>
+                        <Text style={[dmod.tdCell, { flex: 1, color: '#9B98C0' }]}>x{r.quantity}</Text>
+                        <Text style={[dmod.tdCell, { flex: 2, color: '#9B98C0' }]}>{r.description || '—'}</Text>
                       </>
                     )}
                   </View>
@@ -859,10 +859,10 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
         <TouchableOpacity style={{ flex: 1, backgroundColor: '#00000060' }} activeOpacity={1} onPress={() => setShowBookingPicker(false)}>
           <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%', padding: 16 }}
             onStartShouldSetResponder={() => true}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 12 }}>Select a Booking</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A2E', marginBottom: 12 }}>Select a Booking</Text>
             <TextInput
-              style={{ backgroundColor: '#f4f6fb', borderRadius: 10, borderWidth: 1, borderColor: '#e2e5f0', padding: 10, marginBottom: 10, fontSize: 14, color: '#1a1a2e' }}
-              placeholder="Search client, venue, event…" placeholderTextColor="#aaa"
+              style={{ backgroundColor: '#F7F5FF', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)', padding: 10, marginBottom: 10, fontSize: 14, color: '#1A1A2E' }}
+              placeholder="Search client, venue, event…" placeholderTextColor="#9B98C0"
               value={bookingSearch} onChangeText={setBookingSearch} autoFocus
             />
             <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -874,15 +874,15 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                 .map(b => (
                   <TouchableOpacity
                     key={b._id}
-                    style={{ padding: 12, borderRadius: 10, marginBottom: 6, backgroundColor: entry.bookingId === b._id ? '#6C63FF12' : '#f8f9ff', borderWidth: 1, borderColor: entry.bookingId === b._id ? '#6C63FF50' : '#e8eaf0' }}
+                    style={{ padding: 12, borderRadius: 10, marginBottom: 6, backgroundColor: entry.bookingId === b._id ? 'rgba(123,97,255,0.07)' : '#F7F5FF', borderWidth: 1, borderColor: entry.bookingId === b._id ? 'rgba(123,97,255,0.3)' : 'rgba(123,97,255,0.1)' }}
                     onPress={() => { upd({ bookingId: b._id }); setShowBookingPicker(false); }}
                   >
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1a1a2e' }}>{b.venue}  ·  {b.date}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A1A2E' }}>{b.venue}  ·  {b.date}</Text>
                     <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{b.client}  —  {b.eventName}</Text>
                   </TouchableOpacity>
                 ))
               }
-              {bookings.length === 0 && <Text style={{ color: '#aaa', textAlign: 'center', padding: 24 }}>No bookings found</Text>}
+              {bookings.length === 0 && <Text style={{ color: '#9B98C0', textAlign: 'center', padding: 24 }}>No bookings found</Text>}
             </ScrollView>
           </View>
         </TouchableOpacity>
@@ -962,8 +962,8 @@ export default function DecorScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f4f6fb' }}>
-        <Text style={{ fontSize: 15, color: '#888' }}>Loading decors…</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#EEF0FF' }}>
+        <Text style={{ fontSize: 15, color: '#6E6E8D' }}>Loading decors…</Text>
       </View>
     );
   }
@@ -1005,7 +1005,7 @@ export default function DecorScreen() {
         <View style={main.stickyBar}>
           <View style={main.searchRow}>
             <TextInput style={main.searchInput} placeholder="Search by name, customer, mobile..."
-              placeholderTextColor="#aaa" value={search} onChangeText={setSearch} />
+              placeholderTextColor="#9B98C0" value={search} onChangeText={setSearch} />
             <TouchableOpacity style={main.sortBtn} onPress={() => setShowSort(true)}>
               <Text style={main.sortBtnTxt}>Sort</Text>
             </TouchableOpacity>
@@ -1024,7 +1024,7 @@ export default function DecorScreen() {
           <View style={main.statusRow}>
             {(['All', 'pending', 'partial', 'completed'] as const).map(s => {
               const active = filterStatus === s;
-              const color  = s === 'All' ? '#6C63FF' : PAY_COLOR[s as PaymentStatus];
+              const color  = s === 'All' ? '#7B61FF' : PAY_COLOR[s as PaymentStatus];
               return (
                 <TouchableOpacity key={s} onPress={() => setFilterStatus(s)}
                   style={[main.statusChip, { backgroundColor: active ? color : color + '18', borderColor: active ? color : color + '40' }]}>
@@ -1040,7 +1040,7 @@ export default function DecorScreen() {
         {/* Summary cards */}
         <View style={main.summaryRow}>
           {([
-            ['Total\nEvents',   entries.length.toString(), '#6C63FF'],
+            ['Total\nEvents',   entries.length.toString(), '#7B61FF'],
             ['Total\nRevenue',  fmtMoney(totalRevenue),    '#27ae60'],
             ['Pending\nBalance',fmtMoney(pendingBal),      '#e74c3c'],
             ['Upcoming\nEvents',upcomingCount.toString(),  '#2980b9'],
@@ -1083,12 +1083,12 @@ export default function DecorScreen() {
       <Modal transparent animationType="fade" visible={showSort} onRequestClose={() => setShowSort(false)}>
         <TouchableOpacity style={sel.overlay} onPress={() => setShowSort(false)} activeOpacity={1}>
           <View style={[sel.sheet, { width: SW * 0.8 }]}>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e', marginBottom: 12 }}>Sort By</Text>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A1A2E', marginBottom: 12 }}>Sort By</Text>
             {SORT_OPTIONS.map(o => (
               <TouchableOpacity key={o} style={[sel.option, sortBy === o && sel.optionActive]}
                 onPress={() => { setSortBy(o); setShowSort(false); }}>
                 <Text style={[sel.optionTxt, sortBy === o && sel.optionActiveTxt]}>{o}</Text>
-                {sortBy === o && <Text style={{ color: '#6C63FF', fontWeight: '700' }}>&#10003;</Text>}
+                {sortBy === o && <Text style={{ color: '#7B61FF', fontWeight: '700' }}>&#10003;</Text>}
               </TouchableOpacity>
             ))}
           </View>
@@ -1120,147 +1120,147 @@ export default function DecorScreen() {
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const main = StyleSheet.create({
-  container:      { flex: 1, backgroundColor: '#F4F6FB' },
-  topBar:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 52, paddingBottom: 14, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  topTitle:       { fontSize: 22, fontWeight: '800', color: '#111827', letterSpacing: -0.3 },
-  addBtn:         { backgroundColor: '#6C63FF', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 22 },
+  container:      { flex: 1, backgroundColor: '#EEF0FF' },
+  topBar:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 52, paddingBottom: 14, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: 'rgba(123,97,255,0.12)' },
+  topTitle:       { fontSize: 22, fontWeight: '800', color: '#1A1A2E', letterSpacing: -0.3 },
+  addBtn:         { backgroundColor: '#7B61FF', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 22 },
   addBtnTxt:      { color: '#fff', fontWeight: '700', fontSize: 14, letterSpacing: 0.1 },
-  stickyBar:      { backgroundColor: '#F4F6FB', paddingTop: 12, paddingBottom: 4 },
+  stickyBar:      { backgroundColor: '#EEF0FF', paddingTop: 12, paddingBottom: 4 },
   searchRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 10, marginBottom: 10 },
-  searchInput:    { flex: 1, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 16, paddingVertical: 11, fontSize: 14, color: '#111827' },
-  sortBtn:        { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 16, paddingVertical: 11 },
-  sortBtnTxt:     { fontSize: 13, fontWeight: '700', color: '#6B7280' },
+  searchInput:    { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)', paddingHorizontal: 16, paddingVertical: 11, fontSize: 14, color: '#1A1A2E' },
+  sortBtn:        { backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)', paddingHorizontal: 16, paddingVertical: 11 },
+  sortBtnTxt:     { fontSize: 13, fontWeight: '700', color: '#6E6E8D' },
   chipScroll:     { marginBottom: 10 },
-  chip:           { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 22, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff' },
-  chipActive:     { backgroundColor: '#6C63FF', borderColor: '#6C63FF' },
-  chipTxt:        { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  chip:           { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)', backgroundColor: '#FFFFFF' },
+  chipActive:     { backgroundColor: '#7B61FF', borderColor: '#7B61FF' },
+  chipTxt:        { fontSize: 12, fontWeight: '600', color: '#6E6E8D' },
   chipTxtActive:  { color: '#fff' },
   statusRow:      { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
   statusChip:     { flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 14, borderWidth: 1 },
   statusChipTxt:  { fontSize: 12, fontWeight: '700' },
   summaryRow:     { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 12 },
-  summaryCard:    { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 12, alignItems: 'center', borderTopWidth: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  summaryCard:    { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 14, padding: 12, alignItems: 'center', borderTopWidth: 3, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 },
   summaryVal:     { fontSize: 14, fontWeight: '800', marginBottom: 3 },
-  summaryLabel:   { fontSize: 9, color: '#9CA3AF', fontWeight: '600', textAlign: 'center', letterSpacing: 0.2 },
+  summaryLabel:   { fontSize: 9, color: '#9B98C0', fontWeight: '600', textAlign: 'center', letterSpacing: 0.2 },
   resultsBar:     { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 8 },
-  resultsCount:   { fontSize: 13, fontWeight: '700', color: '#6B7280' },
-  sortedBy:       { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },
+  resultsCount:   { fontSize: 13, fontWeight: '700', color: '#6E6E8D' },
+  sortedBy:       { fontSize: 11, color: '#9B98C0', fontWeight: '500' },
   empty:          { alignItems: 'center', marginTop: 72, paddingHorizontal: 32 },
   emptyIcon:      { fontSize: 54, marginBottom: 16 },
-  emptyTitle:     { fontSize: 17, fontWeight: '700', color: '#6B7280' },
-  emptyHint:      { fontSize: 13, color: '#9CA3AF', marginTop: 8, textAlign: 'center', fontWeight: '500' },
+  emptyTitle:     { fontSize: 17, fontWeight: '700', color: '#6E6E8D' },
+  emptyHint:      { fontSize: 13, color: '#9B98C0', marginTop: 8, textAlign: 'center', fontWeight: '500' },
 });
 
 const dc = StyleSheet.create({
-  card:         { marginHorizontal: 16, marginBottom: 14, backgroundColor: '#fff', borderRadius: 20, padding: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 4 },
+  card:         { marginHorizontal: 16, marginBottom: 14, backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4 },
   topRow:       { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
-  eventName:    { fontSize: 17, fontWeight: '800', color: '#111827', letterSpacing: -0.2 },
-  customer:     { fontSize: 12, color: '#9CA3AF', fontWeight: '500' },
-  typeBadge:    { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: '#6C63FF1A' },
-  typeBadgeTxt: { fontSize: 11, fontWeight: '700', color: '#6C63FF' },
+  eventName:    { fontSize: 17, fontWeight: '800', color: '#1A1A2E', letterSpacing: -0.2 },
+  customer:     { fontSize: 12, color: '#9B98C0', fontWeight: '500' },
+  typeBadge:    { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: 'rgba(123,97,255,0.1)' },
+  typeBadgeTxt: { fontSize: 11, fontWeight: '700', color: '#7B61FF' },
   statusBadge:  { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 12 },
   statusTxt:    { fontSize: 11, fontWeight: '800' },
   imgRow:       { marginBottom: 10 },
-  thumb:        { width: 72, height: 72, borderRadius: 12, marginRight: 8, backgroundColor: '#1a1a2e' },
+  thumb:        { width: 72, height: 72, borderRadius: 12, marginRight: 8, backgroundColor: '#1A1A2E' },
   metaRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 12 },
-  meta:         { fontSize: 12, color: '#6B7280', fontWeight: '500' },
-  upcomingChip: { backgroundColor: '#3B82F61A', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  meta:         { fontSize: 12, color: '#6E6E8D', fontWeight: '500' },
+  upcomingChip: { backgroundColor: 'rgba(59,130,246,0.1)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   upcomingTxt:  { fontSize: 11, fontWeight: '700', color: '#3B82F6' },
-  finRow:       { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 12, marginBottom: 14 },
+  finRow:       { flexDirection: 'row', borderTopWidth: 1, borderTopColor: 'rgba(123,97,255,0.08)', paddingTop: 12, marginBottom: 14 },
   finItem:      { flex: 1, alignItems: 'center' },
-  finLabel:     { fontSize: 10, color: '#9CA3AF', fontWeight: '500' },
-  finVal:       { fontSize: 14, fontWeight: '800', color: '#111827', marginTop: 3 },
+  finLabel:     { fontSize: 10, color: '#9B98C0', fontWeight: '500' },
+  finVal:       { fontSize: 14, fontWeight: '800', color: '#1A1A2E', marginTop: 3 },
   actionRow:    { flexDirection: 'row', gap: 8 },
   btn:          { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center' },
   btnTxt:       { fontSize: 12, fontWeight: '700' },
-  createdDate:  { fontSize: 10, color: '#D1D5DB', marginTop: 12, textAlign: 'right', fontWeight: '500' },
+  createdDate:  { fontSize: 10, color: 'rgba(123,97,255,0.3)', marginTop: 12, textAlign: 'right', fontWeight: '500' },
 });
 
 const dmod = StyleSheet.create({
-  navbar:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: Platform.OS === 'ios' ? 52 : 36, paddingBottom: 14, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
+  navbar:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: Platform.OS === 'ios' ? 52 : 36, paddingBottom: 14, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: 'rgba(123,97,255,0.12)' },
   navBack:       { paddingVertical: 4, paddingRight: 8, minWidth: 60 },
-  navBackTxt:    { fontSize: 14, fontWeight: '700', color: '#6C63FF' },
-  navTitle:      { flex: 1, fontSize: 16, fontWeight: '800', color: '#111827', textAlign: 'center', marginHorizontal: 8, letterSpacing: -0.2 },
-  navIconBtn:    { backgroundColor: '#F3F4F6', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
-  navIconTxt:    { fontSize: 12, fontWeight: '700', color: '#6B7280' },
-  navSave:       { backgroundColor: '#6C63FF', borderRadius: 14, paddingHorizontal: 18, paddingVertical: 8 },
+  navBackTxt:    { fontSize: 14, fontWeight: '700', color: '#7B61FF' },
+  navTitle:      { flex: 1, fontSize: 16, fontWeight: '800', color: '#1A1A2E', textAlign: 'center', marginHorizontal: 8, letterSpacing: -0.2 },
+  navIconBtn:    { backgroundColor: 'rgba(123,97,255,0.1)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
+  navIconTxt:    { fontSize: 12, fontWeight: '700', color: '#6E6E8D' },
+  navSave:       { backgroundColor: '#7B61FF', borderRadius: 14, paddingHorizontal: 18, paddingVertical: 8 },
   navSaveTxt:    { color: '#fff', fontWeight: '700', fontSize: 14 },
-  navEdit:       { backgroundColor: '#6C63FF1A', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8 },
-  navEditTxt:    { color: '#6C63FF', fontWeight: '700', fontSize: 14 },
+  navEdit:       { backgroundColor: 'rgba(123,97,255,0.1)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8 },
+  navEditTxt:    { color: '#7B61FF', fontWeight: '700', fontSize: 14 },
   statusBanner:  { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 14, marginBottom: 6, borderRadius: 16, padding: 16, borderWidth: 1 },
   statusTitle:   { fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
-  statusSub:     { fontSize: 11, color: '#9CA3AF', marginTop: 3, fontWeight: '500' },
+  statusSub:     { fontSize: 11, color: '#9B98C0', marginTop: 3, fontWeight: '500' },
   statusDot:     { width: 12, height: 12, borderRadius: 6 },
-  section:       { marginHorizontal: 16, marginTop: 14, backgroundColor: '#fff', borderRadius: 18, padding: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  sectionTitle:  { fontSize: 15, fontWeight: '800', color: '#111827', marginBottom: 12, letterSpacing: -0.2 },
+  section:       { marginHorizontal: 16, marginTop: 14, backgroundColor: '#FFFFFF', borderRadius: 18, padding: 18, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
+  sectionTitle:  { fontSize: 15, fontWeight: '800', color: '#1A1A2E', marginBottom: 12, letterSpacing: -0.2 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  hint:          { fontSize: 13, color: '#9CA3AF', fontStyle: 'italic', paddingVertical: 4, fontWeight: '500' },
-  label:         { fontSize: 11, fontWeight: '700', color: '#9CA3AF', marginTop: 14, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0.8 },
-  input:         { backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#111827' },
+  hint:          { fontSize: 13, color: '#9B98C0', fontStyle: 'italic', paddingVertical: 4, fontWeight: '500' },
+  label:         { fontSize: 11, fontWeight: '700', color: '#6E6E8D', marginTop: 14, marginBottom: 7, textTransform: 'uppercase', letterSpacing: 0.8 },
+  input:         { backgroundColor: '#F7F5FF', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#1A1A2E' },
   imgWrap:       { marginRight: 8, position: 'relative' },
-  imgThumb:      { width: 90, height: 90, borderRadius: 14, backgroundColor: '#1a1a2e' },
+  imgThumb:      { width: 90, height: 90, borderRadius: 14, backgroundColor: '#1A1A2E' },
   imgRemove:     { position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center' },
-  imgAddBtn:     { width: 90, height: 90, borderRadius: 14, borderWidth: 2, borderColor: '#6C63FF', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6C63FF08' },
-  imgAddPlus:    { fontSize: 28, color: '#6C63FF', fontWeight: '300' },
-  imgAddLabel:   { fontSize: 10, color: '#6C63FF', fontWeight: '700', marginTop: 2 },
-  infoTable:     { borderWidth: 1, borderColor: '#F3F4F6', borderRadius: 12, overflow: 'hidden' },
-  infoRow:       { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#F9FAFB' },
-  infoKey:       { fontSize: 12, color: '#9CA3AF', fontWeight: '600' },
-  infoVal:       { fontSize: 13, color: '#111827', fontWeight: '600', flex: 1, textAlign: 'right' },
-  tableHead:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F6FB', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, marginBottom: 2 },
-  thCell:        { fontSize: 11, fontWeight: '700', color: '#9CA3AF' },
+  imgAddBtn:     { width: 90, height: 90, borderRadius: 14, borderWidth: 2, borderColor: '#7B61FF', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(123,97,255,0.04)' },
+  imgAddPlus:    { fontSize: 28, color: '#7B61FF', fontWeight: '300' },
+  imgAddLabel:   { fontSize: 10, color: '#7B61FF', fontWeight: '700', marginTop: 2 },
+  infoTable:     { borderWidth: 1, borderColor: 'rgba(123,97,255,0.1)', borderRadius: 12, overflow: 'hidden' },
+  infoRow:       { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: 'rgba(123,97,255,0.06)' },
+  infoKey:       { fontSize: 12, color: '#9B98C0', fontWeight: '600' },
+  infoVal:       { fontSize: 13, color: '#1A1A2E', fontWeight: '600', flex: 1, textAlign: 'right' },
+  tableHead:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F7F5FF', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, marginBottom: 2 },
+  thCell:        { fontSize: 11, fontWeight: '700', color: '#9B98C0' },
   tableRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 9, borderRadius: 8, gap: 4 },
-  tdCell:        { fontSize: 13, color: '#374151' },
-  cellInput:     { backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 10, paddingVertical: 8, fontSize: 12, color: '#111827' },
-  totalBar:      { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#6C63FF', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, marginTop: 10 },
+  tdCell:        { fontSize: 13, color: '#1A1A2E' },
+  cellInput:     { backgroundColor: '#F7F5FF', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)', paddingHorizontal: 10, paddingVertical: 8, fontSize: 12, color: '#1A1A2E' },
+  totalBar:      { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#7B61FF', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, marginTop: 10 },
   totalBarLabel: { fontSize: 13, fontWeight: '700', color: '#fff' },
   totalBarVal:   { fontSize: 17, fontWeight: '800', color: '#fff' },
-  addRowBtn:     { backgroundColor: '#6C63FF1A', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 7 },
-  addRowTxt:     { fontSize: 12, fontWeight: '700', color: '#6C63FF' },
+  addRowBtn:     { backgroundColor: 'rgba(123,97,255,0.1)', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 7 },
+  addRowTxt:     { fontSize: 12, fontWeight: '700', color: '#7B61FF' },
   payGrid:       { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  payGridItem:   { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, alignItems: 'center' },
-  payGridLabel:  { fontSize: 10, color: '#9CA3AF', marginBottom: 4, fontWeight: '500' },
-  payGridVal:    { fontSize: 14, fontWeight: '800', color: '#111827' },
-  calcBox:       { backgroundColor: '#F9FAFB', borderRadius: 14, padding: 14, marginTop: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  payGridItem:   { flex: 1, backgroundColor: '#F7F5FF', borderRadius: 12, padding: 12, alignItems: 'center' },
+  payGridLabel:  { fontSize: 10, color: '#9B98C0', marginBottom: 4, fontWeight: '500' },
+  payGridVal:    { fontSize: 14, fontWeight: '800', color: '#1A1A2E' },
+  calcBox:       { backgroundColor: '#F7F5FF', borderRadius: 14, padding: 14, marginTop: 12, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' },
   calcRow:       { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
-  calcTotalRow:  { borderTopWidth: 1, borderTopColor: '#E5E7EB', marginTop: 4, paddingTop: 10 },
-  calcLabel:     { fontSize: 13, color: '#6B7280', fontWeight: '500' },
-  calcVal:       { fontSize: 13, fontWeight: '600', color: '#111827' },
+  calcTotalRow:  { borderTopWidth: 1, borderTopColor: 'rgba(123,97,255,0.15)', marginTop: 4, paddingTop: 10 },
+  calcLabel:     { fontSize: 13, color: '#6E6E8D', fontWeight: '500' },
+  calcVal:       { fontSize: 13, fontWeight: '600', color: '#1A1A2E' },
   statusPill:    { borderRadius: 12, paddingVertical: 11, alignItems: 'center', borderWidth: 1, marginTop: 12 },
   statusPillTxt: { fontSize: 13, fontWeight: '700' },
   reqRow:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 10, gap: 8, borderRadius: 8 },
-  commentsBox:   { fontSize: 14, color: '#374151', lineHeight: 22, backgroundColor: '#F9FAFB', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+  commentsBox:   { fontSize: 14, color: '#1A1A2E', lineHeight: 22, backgroundColor: '#F7F5FF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' },
   bottomRow:     { flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 18 },
-  cancelBtn:     { flex: 1, paddingVertical: 15, borderRadius: 16, borderWidth: 1.5, borderColor: '#E5E7EB', alignItems: 'center' },
-  cancelBtnTxt:  { fontSize: 15, fontWeight: '700', color: '#9CA3AF' },
-  saveBtn:       { flex: 2, paddingVertical: 15, borderRadius: 16, backgroundColor: '#6C63FF', alignItems: 'center' },
+  cancelBtn:     { flex: 1, paddingVertical: 15, borderRadius: 16, borderWidth: 1.5, borderColor: 'rgba(123,97,255,0.2)', alignItems: 'center' },
+  cancelBtnTxt:  { fontSize: 15, fontWeight: '700', color: '#9B98C0' },
+  saveBtn:       { flex: 2, paddingVertical: 15, borderRadius: 16, backgroundColor: '#7B61FF', alignItems: 'center' },
   saveBtnTxt:    { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-  carouselImg:   { width: SW - 32, height: 260, borderRadius: 16, backgroundColor: '#1a1a2e' },
+  carouselImg:   { width: SW - 32, height: 260, borderRadius: 16, backgroundColor: '#1A1A2E' },
   dotsRow:       { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 12, gap: 6 },
-  dot:           { width: 7, height: 7, borderRadius: 4, backgroundColor: '#E5E7EB' },
-  dotActive:     { width: 10, height: 10, borderRadius: 5, backgroundColor: '#6C63FF' },
+  dot:           { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(123,97,255,0.2)' },
+  dotActive:     { width: 10, height: 10, borderRadius: 5, backgroundColor: '#7B61FF' },
 
   // Booking link
-  linkBookingBtn:      { borderWidth: 1.5, borderColor: '#6C63FF80', borderStyle: 'dashed', borderRadius: 14, padding: 14, alignItems: 'center', marginBottom: 10 },
-  linkBookingTxt:      { color: '#6C63FF', fontSize: 14, fontWeight: '600' },
-  linkedBookingCard:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#6C63FF0D', borderWidth: 1, borderColor: '#6C63FF30', borderRadius: 14, padding: 14, marginBottom: 10 },
-  linkedBookingTitle:  { fontSize: 13, fontWeight: '700', color: '#111827' },
-  linkedBookingSub:    { fontSize: 11, color: '#6B7280', marginTop: 2, fontWeight: '500' },
+  linkBookingBtn:      { borderWidth: 1.5, borderColor: 'rgba(123,97,255,0.5)', borderStyle: 'dashed', borderRadius: 14, padding: 14, alignItems: 'center', marginBottom: 10 },
+  linkBookingTxt:      { color: '#7B61FF', fontSize: 14, fontWeight: '600' },
+  linkedBookingCard:   { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(123,97,255,0.05)', borderWidth: 1, borderColor: 'rgba(123,97,255,0.18)', borderRadius: 14, padding: 14, marginBottom: 10 },
+  linkedBookingTitle:  { fontSize: 13, fontWeight: '700', color: '#1A1A2E' },
+  linkedBookingSub:    { fontSize: 11, color: '#6E6E8D', marginTop: 2, fontWeight: '500' },
   clearLinkBtn:        { width: 30, height: 30, borderRadius: 15, backgroundColor: '#EF44441A', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   clearLinkTxt:        { color: '#EF4444', fontSize: 13, fontWeight: '700' },
 });
 
 const sel = StyleSheet.create({
-  trigger:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f4f6fb', borderRadius: 10, borderWidth: 1, borderColor: '#e2e5f0', paddingHorizontal: 12, paddingVertical: 11 },
-  triggerTxt:     { fontSize: 14, color: '#1a1a2e', flex: 1 },
-  arrow:          { fontSize: 11, color: '#aaa', marginLeft: 4 },
+  trigger:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F7F5FF', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)', paddingHorizontal: 12, paddingVertical: 11 },
+  triggerTxt:     { fontSize: 14, color: '#1A1A2E', flex: 1 },
+  arrow:          { fontSize: 11, color: '#9B98C0', marginLeft: 4 },
   overlay:        { flex: 1, backgroundColor: 'rgba(0,0,0,0.42)', justifyContent: 'center', alignItems: 'center' },
   sheet:          { backgroundColor: '#fff', borderRadius: 18, padding: 16, width: SW * 0.88, maxHeight: SH * 0.6 },
-  search:         { backgroundColor: '#f4f6fb', borderRadius: 10, borderWidth: 1, borderColor: '#e2e5f0', paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, marginBottom: 8 },
+  search:         { backgroundColor: '#F7F5FF', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)', paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, marginBottom: 8 },
   option:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12, borderRadius: 8 },
-  optionActive:   { backgroundColor: '#6C63FF12' },
-  optionTxt:      { fontSize: 14, color: '#333' },
-  optionActiveTxt:{ color: '#6C63FF', fontWeight: '700' },
-  noResult:       { textAlign: 'center', color: '#bbb', paddingVertical: 20, fontStyle: 'italic' },
+  optionActive:   { backgroundColor: 'rgba(123,97,255,0.07)' },
+  optionTxt:      { fontSize: 14, color: '#1A1A2E' },
+  optionActiveTxt:{ color: '#7B61FF', fontWeight: '700' },
+  noResult:       { textAlign: 'center', color: '#9B98C0', paddingVertical: 20, fontStyle: 'italic' },
 });

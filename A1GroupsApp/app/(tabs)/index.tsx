@@ -134,8 +134,8 @@ const emptyIF = (): InvForm => ({
 });
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
-const LT = {bg:'#F4F6FB', card:'#FFFFFF', text:'#111827', sub:'#6B7280', border:'#E5E7EB', nav:'#FFFFFF', input:'#F9FAFB'};
-const DK = {bg:'#0D1117', card:'#161B22', text:'#E6EDF3', sub:'#8B949E', border:'#30363D', nav:'#161B22', input:'#0D1117'};
+const LT = {bg:'#EEF0FF', card:'#FFFFFF', text:'#1A1A2E', sub:'#6E6E8D', border:'rgba(123,97,255,0.12)', nav:'#FFFFFF', input:'#F7F5FF'};
+const DK = {bg:'#12102B', card:'#1E1B3A', text:'#F0EDFF', sub:'#9B98C0', border:'rgba(123,97,255,0.2)',  nav:'#1E1B3A', input:'#12102B'};
 
 // ─── SelectField ──────────────────────────────────────────────────────────────
 function Sel({label,value,options,onChange,isDark,ph}:{label?:string;value:string;options:string[];onChange(v:string):void;isDark:boolean;ph?:string}) {

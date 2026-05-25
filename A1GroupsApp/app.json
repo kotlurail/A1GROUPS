@@ -36,7 +36,14 @@
       "expo-font",
       "expo-splash-screen",
       "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "A1 Groups needs access to your photos to upload event images.",
+          "cameraPermission": "A1 Groups needs access to your camera to capture event photos."
+        }
+      ]
     ],
     "extra": {
       "router": {},

@@ -3,6 +3,16 @@
     "version": ">= 16.0.0"
   },
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://a1groups.onrender.com"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "android": {

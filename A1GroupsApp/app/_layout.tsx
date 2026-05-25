@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { getToken, clearToken } from '../lib/auth';
+import { clearToken, isSessionExpired } from '../lib/auth';
 import LoginScreen from './login';
 
 interface AuthCtx { logout: () => Promise<void>; }
@@ -11,12 +12,32 @@ export const useAuth = () => useContext(AuthContext);
 export default function RootLayout() {
   const [checking, setChecking] = useState(true);
   const [authed, setAuthed]     = useState(false);
+  const appState = useRef(AppState.currentState);
 
+  async function checkAuth() {
+    const expired = await isSessionExpired();
+    if (expired) {
+      await clearToken();
+      setAuthed(false);
+    } else {
+      setAuthed(true);
+    }
+  }
+
+  // Check on startup
   useEffect(() => {
-    getToken().then(t => {
-      setAuthed(!!t);
-      setChecking(false);
+    checkAuth().finally(() => setChecking(false));
+  }, []);
+
+  // Re-check whenever the app comes back to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && next === 'active') {
+        checkAuth();
+      }
+      appState.current = next;
     });
+    return () => sub.remove();
   }, []);
 
   const logout = async () => {
@@ -24,10 +45,8 @@ export default function RootLayout() {
     setAuthed(false);
   };
 
-  // Still reading stored token — show nothing (splash is still visible)
   if (checking) return null;
 
-  // Not authenticated — show PIN screen
   if (!authed) return <LoginScreen onSuccess={() => setAuthed(true)} />;
 
   return (

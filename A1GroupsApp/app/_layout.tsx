@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { clearToken, isSessionExpired } from '../lib/auth';
+import { authApi } from '../lib/api';
 import LoginScreen from './login';
 
 interface AuthCtx { logout: () => Promise<void>; }
@@ -41,6 +42,7 @@ export default function RootLayout() {
   }, []);
 
   const logout = async () => {
+    try { await authApi.logout(); } catch {}
     await clearToken();
     setAuthed(false);
   };

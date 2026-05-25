@@ -60,7 +60,8 @@ const del    = <T>(path: string)                  => request<T>(path, { method: 
 // ─── Auth API ─────────────────────────────────────────────────────────────────
 
 export const authApi = {
-  login: (pin: string) => post<{ token: string }>('/api/auth/login', { pin }),
+  login:  (pin: string) => post<{ token: string }>('/api/auth/login', { pin }),
+  logout: ()            => post<{ ok: boolean }>('/api/auth/logout', {}),
 };
 
 // ─── Types (mirror backend models) ────────────────────────────────────────────

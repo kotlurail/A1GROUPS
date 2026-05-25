@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
 import { useState } from 'react';
@@ -13,23 +13,9 @@ export default function SettingsScreen() {
   const text = isDark ? '#F0EDFF' : '#1A1A2E';
   const sub  = isDark ? '#9B98C0' : '#6E6E8D';
 
-  function confirmLogout() {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            setLoggingOut(true);
-            await logout();
-            // setLoggingOut(false) not needed — component unmounts when authed → false
-          },
-        },
-      ]
-    );
+  async function handleLogout() {
+    setLoggingOut(true);
+    await logout();
   }
 
   return (
@@ -65,7 +51,7 @@ export default function SettingsScreen() {
         {/* Logout button */}
         <TouchableOpacity
           style={[styles.logoutBtn, loggingOut && styles.logoutBtnDisabled]}
-          onPress={confirmLogout}
+          onPress={handleLogout}
           disabled={loggingOut}
           activeOpacity={0.85}
         >

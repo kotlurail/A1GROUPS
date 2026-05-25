@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
 import { useState } from 'react';
-import { useAuth } from '../_layout';
+import { useAuth } from '../../lib/AuthContext';
 
 export default function SettingsScreen() {
   const { logout } = useAuth();

@@ -1,14 +1,11 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { clearToken, isSessionExpired } from '../lib/auth';
 import { authApi } from '../lib/api';
+import { AuthContext } from '../lib/AuthContext';
 import LoginScreen from './login';
-
-interface AuthCtx { logout: () => Promise<void>; }
-export const AuthContext = createContext<AuthCtx>({ logout: async () => {} });
-export const useAuth = () => useContext(AuthContext);
 
 export default function RootLayout() {
   const [checking, setChecking] = useState(true);
@@ -25,12 +22,10 @@ export default function RootLayout() {
     }
   }
 
-  // Check on startup
   useEffect(() => {
     checkAuth().finally(() => setChecking(false));
   }, []);
 
-  // Re-check whenever the app comes back to foreground
   useEffect(() => {
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
       if (appState.current.match(/inactive|background/) && next === 'active') {
@@ -42,7 +37,6 @@ export default function RootLayout() {
   }, []);
 
   const logout = async () => {
-    // Fire to server in background — don't block local logout on network
     authApi.logout().catch(() => {});
     await clearToken();
     setAuthed(false);

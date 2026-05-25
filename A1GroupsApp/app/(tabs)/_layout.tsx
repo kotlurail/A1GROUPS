@@ -9,6 +9,7 @@ const TABS = [
   { name: 'employees',     title: 'Staff',     icon: '👤' },
   { name: 'accounts',      title: 'Accounts',  icon: '💰' },
   { name: 'bookings',      title: 'Bookings',  icon: '📅' },
+  { name: 'settings',      title: 'Settings',  icon: '⚙️' },
 ];
 
 function TabIcon({ icon, focused }: { icon: string; focused: boolean }) {

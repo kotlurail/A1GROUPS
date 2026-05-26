@@ -1,14 +1,16 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
-  StyleSheet, Platform, Alert, Dimensions, SafeAreaView, KeyboardAvoidingView, StatusBar,
+  StyleSheet, Platform, Alert, Dimensions, KeyboardAvoidingView, StatusBar,
 } from 'react-native';
 import { useColorScheme } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { inventoryApi, rentalsApi } from '../../lib/api';
 
 const W = Dimensions.get('window').width;
+const SHEET_MAX_H = Dimensions.get('window').height * 0.88;
 const TODAY = '2026-05-14';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -266,6 +268,7 @@ function RentalModal({visible,form,setForm,onSave,onClose,isDark,isEdit,inv,entr
   isDark:boolean;isEdit:boolean;inv:InvItem[];entries:RentalEntry[];editId?:string;
 }) {
   const t=isDark?DK:LT;
+  const insets=useSafeAreaInsets();
   function upRI(idx:number,patch:Partial<RIForm>) {
     const items=[...form.items]; items[idx]={...items[idx],...patch}; setForm({...form,items});
   }
@@ -273,8 +276,8 @@ function RentalModal({visible,form,setForm,onSave,onClose,isDark,isEdit,inv,entr
   return (
     <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={ss.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={{width:'100%',maxHeight:'95%'}}>
-          <View style={[ss.sheet,{backgroundColor:t.bg,flex:1}]}>
+        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',position:'absolute',bottom:0}}>
+          <View style={[ss.sheet,{backgroundColor:t.bg,height:SHEET_MAX_H,paddingBottom:Math.max(insets.bottom,20)}]}>
             <View style={{flexDirection:'row',alignItems:'center',marginBottom:14}}>
               <Text style={[ss.sheetTitle,{color:t.text}]}>{isEdit?'Edit Rental':'New Rental Entry'}</Text>
               <View style={{flex:1}}/>
@@ -378,14 +381,15 @@ function ReturnModal({entry,onClose,onUpdate,isDark}:{entry:RentalEntry|null;onC
   React.useEffect(()=>{if(entry)setItems(entry.items.map(i=>({...i})));},[entry?.id]);
   if(!entry) return null;
   const t=isDark?DK:LT;
+  const insets=useSafeAreaInsets();
   function upItem(idx:number,p:Partial<RentalItem>) {
     const a=[...items]; a[idx]={...a[idx],...p}; setItems(a);
   }
   return (
     <Modal visible transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={ss.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={{width:'100%',maxHeight:'95%'}}>
-          <View style={[ss.sheet,{backgroundColor:t.bg,flex:1}]}>
+        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',position:'absolute',bottom:0}}>
+          <View style={[ss.sheet,{backgroundColor:t.bg,height:SHEET_MAX_H,paddingBottom:Math.max(insets.bottom,20)}]}>
             <View style={{flexDirection:'row',alignItems:'center',marginBottom:12}}>
               <View>
                 <Text style={[ss.sheetTitle,{color:t.text}]}>Manage Returns</Text>
@@ -465,12 +469,14 @@ function ReturnModal({entry,onClose,onUpdate,isDark}:{entry:RentalEntry|null;onC
 function ViewModal({entry,onClose,onEdit,onReturn,isDark,onPrint}:{entry:RentalEntry|null;onClose():void;onEdit():void;onReturn():void;onPrint():void;isDark:boolean}) {
   if(!entry) return null;
   const t=isDark?DK:LT;
+  const insets=useSafeAreaInsets();
   const total=entryTotal(entry);
   const st=entryStatus(entry);
   return (
     <Modal visible transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={ss.overlay}>
-        <View style={[ss.sheet,{backgroundColor:t.bg,maxHeight:'95%'}]}>
+        <View style={{position:'absolute',bottom:0,width:'100%'}}>
+        <View style={[ss.sheet,{backgroundColor:t.bg,paddingBottom:Math.max(insets.bottom,20)}]}>
           <View style={{flexDirection:'row',alignItems:'center',marginBottom:14}}>
             <View>
               <Text style={[ss.sheetTitle,{color:t.text}]}>{entry.eventName}</Text>
@@ -517,6 +523,7 @@ function ViewModal({entry,onClose,onEdit,onReturn,isDark,onPrint}:{entry:RentalE
             <View style={{height:24}}/>
           </ScrollView>
         </View>
+        </View>
       </View>
     </Modal>
   );
@@ -527,11 +534,12 @@ function InvModal({visible,form,setForm,onSave,onClose,isDark,isEdit}:{
   visible:boolean;form:InvForm;setForm(f:InvForm):void;onSave():void;onClose():void;isDark:boolean;isEdit:boolean;
 }) {
   const t=isDark?DK:LT;
+  const insets=useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={ss.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={{width:'100%',maxHeight:'95%'}}>
-          <View style={[ss.sheet,{backgroundColor:t.bg,flex:1}]}>
+        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',position:'absolute',bottom:0}}>
+          <View style={[ss.sheet,{backgroundColor:t.bg,height:SHEET_MAX_H,paddingBottom:Math.max(insets.bottom,20)}]}>
             <View style={{flexDirection:'row',alignItems:'center',marginBottom:14}}>
               <Text style={[ss.sheetTitle,{color:t.text}]}>{isEdit?'Edit Item':'Add Inventory Item'}</Text>
               <View style={{flex:1}}/>
@@ -1290,8 +1298,8 @@ const ss=StyleSheet.create({
   searchBox:    {padding:12,borderRadius:12,borderWidth:1,fontSize:14},
   sortBtn:      {paddingHorizontal:14,paddingVertical:10,borderRadius:12,borderWidth:1,alignItems:'center',justifyContent:'center'},
   rowBtn:       {paddingHorizontal:12,paddingVertical:7,borderRadius:10,borderWidth:1,alignItems:'center'},
-  overlay:      {flex:1,backgroundColor:'rgba(0,0,0,0.55)',justifyContent:'flex-end'},
-  sheet:        {maxHeight:'93%',borderTopLeftRadius:24,borderTopRightRadius:24,padding:20},
+  overlay:      {flex:1,backgroundColor:'rgba(0,0,0,0.55)'},
+  sheet:        {maxHeight:SHEET_MAX_H,borderTopLeftRadius:24,borderTopRightRadius:24,padding:20},
   sheetTitle:   {fontSize:20,fontWeight:'800',letterSpacing:-0.3},
   secHead:      {fontSize:11,fontWeight:'700',letterSpacing:0.8,textTransform:'uppercase',paddingBottom:10,borderBottomWidth:1,marginBottom:14},
   label:        {fontSize:12,fontWeight:'600',marginBottom:6,letterSpacing:0.2},

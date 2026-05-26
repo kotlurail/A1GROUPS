@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
-  StyleSheet, Platform, Alert, SafeAreaView,
+  StyleSheet, Platform, Alert,
   StatusBar, Image,
 } from 'react-native';
 import { useColorScheme } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { eventsApi, uploadApi } from '../../lib/api';

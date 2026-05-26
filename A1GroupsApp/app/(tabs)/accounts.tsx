@@ -1,14 +1,16 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
-  StyleSheet, Platform, Alert, Dimensions, SafeAreaView, KeyboardAvoidingView, StatusBar,
+  StyleSheet, Platform, Alert, Dimensions, KeyboardAvoidingView, StatusBar,
 } from 'react-native';
 import { useColorScheme } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { transactionsApi, accountsApi, FeedItem } from '../../lib/api';
 
 const W = Dimensions.get('window').width;
+const SHEET_MAX_H = Dimensions.get('window').height * 0.88;
 
 function todayStr() {
   const d = new Date();
@@ -302,12 +304,13 @@ function TxModal({ visible, form, setForm, onSave, onClose, isDark, isEdit }: {
   visible: boolean; form: TxForm; setForm(f: TxForm): void; onSave(): void; onClose(): void; isDark: boolean; isEdit: boolean;
 }) {
   const t = isDark ? dark : light;
+  const insets = useSafeAreaInsets();
   const cats = form.type === 'income' ? INCOME_TYPES : EXPENSE_TYPES;
   return (
     <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={s.overlay}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ width: '100%' }}>
-          <View style={[s.sheet, { backgroundColor: t.bg }]}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', position: 'absolute', bottom: 0 }}>
+          <View style={[s.sheet, { backgroundColor: t.bg, height: SHEET_MAX_H, paddingBottom: Math.max(insets.bottom, 20) }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <Text style={[s.sheetTitle, { color: t.text }]}>{isEdit ? 'Edit Transaction' : 'Add Transaction'}</Text>
               <View style={{ flex: 1 }} />
@@ -365,13 +368,15 @@ function DetailModal({ tx, onClose, onEdit, onDelete, isDark }: {
   tx: Transaction | null; onClose(): void; onEdit(): void; onDelete(): void; isDark: boolean;
 }) {
   const t = isDark ? dark : light;
+  const insets = useSafeAreaInsets();
   if (!tx) return null;
   const inc = tx.type === 'income';
   const sc: Record<TxStatus, string> = { completed: '#27ae60', pending: '#f39c12', cancelled: '#e74c3c' };
   return (
     <Modal visible transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={s.overlay}>
-        <View style={[s.sheet, { backgroundColor: t.bg }]}>
+        <View style={{ position: 'absolute', bottom: 0, width: '100%' }}>
+        <View style={[s.sheet, { backgroundColor: t.bg, paddingBottom: Math.max(insets.bottom, 20) }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
             <Text style={[s.sheetTitle, { color: t.text }]}>Transaction Details</Text>
             <View style={{ flex: 1 }} />
@@ -398,6 +403,7 @@ function DetailModal({ tx, onClose, onEdit, onDelete, isDark }: {
               <Text style={{ color: '#fff', fontWeight: '600' }}>🗑 Delete</Text>
             </TouchableOpacity>
           </View>
+        </View>
         </View>
       </View>
     </Modal>
@@ -457,11 +463,12 @@ function SortModal({ visible, current, onSelect, onClose, isDark }: {
   visible: boolean; current: SortKey; onSelect(k: SortKey): void; onClose(): void; isDark: boolean;
 }) {
   const t = isDark ? dark : light;
+  const insets = useSafeAreaInsets();
   const groups = [...new Set(SORT_OPTIONS.map(o => o.group))];
   return (
     <Modal visible={visible} transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={onClose}>
-        <View style={[s.sheet, { backgroundColor: t.bg }]} onStartShouldSetResponder={() => true}>
+        <View style={[s.sheet, { backgroundColor: t.bg, paddingBottom: Math.max(insets.bottom, 20), position: 'absolute', bottom: 0, width: '100%' }]} onStartShouldSetResponder={() => true}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
             <Text style={[s.sheetTitle, { color: t.text }]}>Sort By</Text>
             <View style={{ flex: 1 }} />
@@ -952,8 +959,8 @@ const s = StyleSheet.create({
   txStatus:    { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 8 },
   txBtn:       { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
   searchBox:   { padding: 12, borderRadius: 12, borderWidth: 1, fontSize: 14 },
-  overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  sheet:       { maxHeight: '93%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 },
+  overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheet:       { maxHeight: SHEET_MAX_H, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 },
   sheetTitle:  { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
   fieldLabel:  { fontSize: 12, fontWeight: '600', marginBottom: 6, letterSpacing: 0.2 },
   selectTrigger: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderWidth: 1, marginBottom: 0 },

@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -1115,6 +1116,7 @@ function BookingDetailModal({
 }) {
   const [booking, setBooking] = useState<Booking>(init);
   const [isEditing, setIsEditing] = useState(false);
+  const insets = useSafeAreaInsets();
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -1431,8 +1433,8 @@ function BookingDetailModal({
       <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={() => setIsEditing(false)}>
         <View style={det.overlay}>
           <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={() => setIsEditing(false)} activeOpacity={1} />
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
-            <View style={form_s.sheet}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', position: 'absolute', bottom: 0 }}>
+            <View style={[form_s.sheet, { height: SHEET_MAX_H, paddingBottom: Math.max(insets.bottom, 24) }]}>
             <View style={modal.handle} />
             <View style={det.editHeader}>
               <Text style={form_s.title}>Edit Booking</Text>
@@ -1509,8 +1511,8 @@ function BookingDetailModal({
     <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={det.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
-          <View style={det.sheet}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', position: 'absolute', bottom: 0 }}>
+          <View style={[det.sheet, { height: SHEET_MAX_H, paddingBottom: Math.max(insets.bottom, 20) }]}>
             <View style={det.handle} />
 
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -2397,6 +2399,7 @@ function AddBookingModal({ onClose, onSave }: { onClose: () => void; onSave: (b:
   const [payDate, setPayDate]     = useState(nowDate());
   const [payTime, setPayTime]     = useState(nowTime());
   const [saving, setSaving]       = useState(false);
+  const insets = useSafeAreaInsets();
 
   function set(key: keyof typeof EMPTY_FORM, val: string) {
     setForm(f => ({ ...f, [key]: val }));
@@ -2447,8 +2450,8 @@ function AddBookingModal({ onClose, onSave }: { onClose: () => void; onSave: (b:
     <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={det.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%' }}>
-          <View style={form_s.sheet}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', position: 'absolute', bottom: 0 }}>
+          <View style={[form_s.sheet, { height: SHEET_MAX_H, paddingBottom: Math.max(insets.bottom, 24) }]}>
           <View style={modal.handle} />
           <Text style={form_s.title}>New Booking</Text>
 
@@ -2785,7 +2788,7 @@ const modal = StyleSheet.create({
 
 // Detail modal styles
 const det = StyleSheet.create({
-  overlay:        { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
+  overlay:        { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
   backdrop:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet:          { backgroundColor: '#EEF0FF', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: SHEET_MAX_H },
   handle:         { width: 44, height: 4, backgroundColor: 'rgba(123,97,255,0.15)', borderRadius: 2, alignSelf: 'center', marginBottom: 18 },

@@ -1,11 +1,12 @@
 import {
   Alert, Dimensions, KeyboardAvoidingView, Modal, Platform,
-  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView,
+  ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { useState, useEffect, useCallback } from 'react';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { employeesApi } from '../../lib/api';
 
-const SCREEN_H = Dimensions.get('window').height;
+const SHEET_MAX_H = Dimensions.get('window').height * 0.88;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type AttendanceStatus = 'present' | 'absent' | 'half' | 'holiday';
@@ -239,6 +240,7 @@ function AddEmployeeModal({onClose,onAdd}:{onClose:()=>void;onAdd:(e:Employee)=>
   const [pStart,setPStart]=useState(`${yr}-${mo}-01`);
   const [pEnd,setPEnd]=useState(`${yr}-${mo}-${daysInMonth(Number(yr),Number(mo)-1).toString().padStart(2,'0')}`);
   const [saving,setSaving]=useState(false);
+  const insets=useSafeAreaInsets();
 
   async function handleAdd(){
     if(!name.trim()) return Alert.alert('Required','Enter employee name.');
@@ -261,8 +263,8 @@ function AddEmployeeModal({onClose,onAdd}:{onClose:()=>void;onAdd:(e:Employee)=>
     <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={sh.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1}/>
-        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',maxHeight:'92%'}}>
-          <View style={[sh.sheet,{flex:1}]}>
+        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',position:'absolute',bottom:0}}>
+          <View style={[sh.sheet,{height:SHEET_MAX_H,paddingBottom:Math.max(insets.bottom,20)}]}>
             <View style={sh.handle}/>
             <View style={sh.header}>
               <Text style={sh.title}>Add Employee</Text>
@@ -308,6 +310,7 @@ function EmployeeDetailModal({employee:init,year,month,onClose,onUpdate,onDelete
 }){
   const [emp,setEmp]=useState<Employee>(init);
   const [isEditing,setIsEditing]=useState(false);
+  const insets=useSafeAreaInsets();
   const [calYear,setCalYear]=useState(year);
   const [calMonth,setCalMonth]=useState(month);
 
@@ -406,8 +409,8 @@ function EmployeeDetailModal({employee:init,year,month,onClose,onUpdate,onDelete
       <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={()=>setIsEditing(false)}>
         <View style={sh.overlay}>
           <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={()=>setIsEditing(false)} activeOpacity={1}/>
-          <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',maxHeight:'92%'}}>
-            <View style={[sh.sheet,{flex:1}]}>
+          <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',position:'absolute',bottom:0}}>
+            <View style={[sh.sheet,{height:SHEET_MAX_H,paddingBottom:Math.max(insets.bottom,20)}]}>
               <View style={sh.handle}/>
               <View style={sh.header}>
                 <Text style={sh.title}>Edit Employee</Text>
@@ -446,8 +449,8 @@ function EmployeeDetailModal({employee:init,year,month,onClose,onUpdate,onDelete
     <Modal transparent statusBarTranslucent animationType="slide" onRequestClose={onClose}>
       <View style={det.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1}/>
-        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',maxHeight:'94%'}}>
-          <View style={[det.sheet,{flex:1}]}>
+        <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={{width:'100%',position:'absolute',bottom:0}}>
+          <View style={[det.sheet,{height:SHEET_MAX_H,paddingBottom:Math.max(insets.bottom,20)}]}>
             <View style={det.handle}/>
             <ScrollView style={{flex:1}} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
@@ -736,7 +739,7 @@ const att=StyleSheet.create({
 
 const sh=StyleSheet.create({
   overlay:   {flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,0.55)'},
-  sheet:     {backgroundColor:'#FFFFFF',borderTopLeftRadius:28,borderTopRightRadius:28,paddingHorizontal:20,paddingBottom:Platform.OS==='ios'?36:20},
+  sheet:     {backgroundColor:'#FFFFFF',borderTopLeftRadius:28,borderTopRightRadius:28,paddingHorizontal:20,paddingBottom:0},
   handle:    {width:44,height:4,backgroundColor:'rgba(123,97,255,0.15)',borderRadius:2,alignSelf:'center',marginTop:14,marginBottom:10},
   header:    {flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:18},
   title:     {fontSize:20,fontWeight:'800',color:'#1A1A2E',letterSpacing:-0.3},
@@ -752,7 +755,7 @@ const sh=StyleSheet.create({
 
 const det=StyleSheet.create({
   overlay:        {flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,0.55)'},
-  sheet:          {backgroundColor:'#EEF0FF',borderTopLeftRadius:28,borderTopRightRadius:28,paddingBottom:Platform.OS==='ios'?36:16},
+  sheet:          {backgroundColor:'#EEF0FF',borderTopLeftRadius:28,borderTopRightRadius:28,paddingBottom:0},
   handle:         {width:44,height:4,backgroundColor:'rgba(123,97,255,0.15)',borderRadius:2,alignSelf:'center',marginTop:14,marginBottom:4},
   titleRow:       {flexDirection:'row',alignItems:'flex-start',paddingHorizontal:18,paddingTop:8,paddingBottom:10},
   title:          {fontSize:21,fontWeight:'800',color:'#1A1A2E',letterSpacing:-0.3},

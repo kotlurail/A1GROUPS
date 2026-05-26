@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Platform, Text, View } from 'react-native';
 import { useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TABS = [
   { name: 'index',         title: 'Rentals',   icon: '📦' },
@@ -27,6 +28,8 @@ function TabIcon({ icon, focused }: { icon: string; focused: boolean }) {
 export default function TabLayout() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
+  const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? insets.bottom : 0;
 
   return (
     <Tabs
@@ -35,8 +38,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: isDark ? '#1E1B3A' : '#FFFFFF',
           borderTopWidth: 0,
-          height:         Platform.OS === 'ios' ? 84 : 66,
-          paddingBottom:  Platform.OS === 'ios' ? 24 : 10,
+          height:         Platform.OS === 'ios' ? 84 : 60 + bottomInset,
+          paddingBottom:  Platform.OS === 'ios' ? 24 : 8 + bottomInset,
           paddingTop:     8,
           shadowColor:    '#7B61FF',
           shadowOffset:   { width: 0, height: -4 },

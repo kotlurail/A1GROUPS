@@ -23,6 +23,7 @@ const decorSchema = new Schema(
     requiredItems: [requiredItemSchema],
     advanceAmount: { type: Number, default: 0 },
     settledAmount: { type: Number, default: 0 },
+    quotedAmount:  { type: Number, default: 0 },
     paymentStatus: { type: String, enum: ['pending', 'partial', 'completed'], default: 'pending' },
     comments:      { type: String, default: '' },
     createdDate:   { type: String, default: '' },

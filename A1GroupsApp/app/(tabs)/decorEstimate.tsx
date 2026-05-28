@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
   StyleSheet, Platform, Alert,
@@ -9,6 +10,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { eventsApi, uploadApi } from '../../lib/api';
+import { useDecorItems } from '../../lib/useDecorItems';
+import ManageDecorItemsModal from '../../lib/ManageDecorItemsModal';
 import ImageViewer from '../../lib/ImageViewer';
 
 let ImagePicker: any = null;
@@ -21,15 +24,15 @@ const TODAY = '2026-05-15';
 type AppView = 'dashboard' | 'detail';
 type SortKey = 'newest' | 'oldest' | 'amount-desc' | 'amount-asc' | 'name-az';
 
-interface DecorItem { id: string; name: string; qty: string; unitCost: string; }
+interface DecorItem { id: string; name: string; qty: string; unitCost: string; comment: string; }
 interface DecorSection {
   id: string; heading: string; images: string[];
-  items: DecorItem[]; taxPct: string; discount: string;
+  items: DecorItem[]; taxPct: string; discount: string; comment: string;
 }
 interface EventEntry {
   id: string; eventName: string; customerName: string; mobile: string;
   eventDate: string; location: string; eventType: string;
-  decors: DecorSection[]; advance: string; createdAt: string;
+  decors: DecorSection[]; advance: string; quotedAmount: string; createdAt: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -37,25 +40,7 @@ const EVENT_TYPES = [
   'Wedding','Reception','Engagement','Birthday','Half Saree',
   'Dhoti Ceremony','Haldi','Sangeeth','Baby Shower','Corporate Event','Others',
 ];
-const DECOR_ITEMS = [
-  'Stage Backdrop','Floral Stage Setup','Stage Carpet','Stage Pillars',
-  'Sofa / Throne Setup','Mandap Decoration','Bridal Entry Arch',
-  'Welcome Arch','Entrance Pillars','Entry Gate Decoration',
-  'Name Board','Neon Sign','Neon Light Border',
-  'Fresh Flower Arch','Flower Wall Panel','Artificial Flower Setup',
-  'Balloon Decoration','Balloon Arch','Balloon Bouquets','Paper Flower Backdrop',
-  'LED Light Curtain','Fairy Lights','Chandelier','Ceiling Draping',
-  'LED Spotlight Setup',
-  'Table Centerpiece','Chair Decoration','Table Runner',
-  'Dining Table Setup','Cake Table Setup',
-  'Aisle Decoration','Floral Garland','Rangoli Design',
-  'Diyas / Candles Setup','Photo Booth Setup',
-  'Haldi Decoration','Mehndi Decoration','Baby Shower Setup',
-  'Car Decoration','Photo Frame Wall',
-  'Floral Swing','Photo Ladder','Mirror Board','Acrylic Name Board',
-  'Hanging Decoration','Confetti Setup','Smoke Machine',
-  'Green Wall','Grass Carpet','Petal Shower Setup',
-];
+
 const SORT_OPTS: {key:SortKey;label:string;icon:string}[] = [
   {key:'newest',      label:'Newest First',   icon:'🕐'},
   {key:'oldest',      label:'Oldest First',   icon:'🕰'},
@@ -75,6 +60,7 @@ function fromApi(data: any): EventEntry {
     location:     data.location,
     eventType:    data.eventType,
     advance:      String(data.advance ?? ''),
+    quotedAmount: String(data.quotedAmount ?? ''),
     createdAt:    (data.createdAt ?? TODAY).slice(0, 10),
     decors: (data.decors ?? []).map((d: any) => ({
       id:       d._id,
@@ -82,11 +68,13 @@ function fromApi(data: any): EventEntry {
       images:   d.images ?? [],
       taxPct:   String(d.taxPct  || ''),
       discount: String(d.discount || ''),
+      comment:  d.comment ?? '',
       items: (d.items ?? []).map((i: any) => ({
         id:       i._id,
         name:     i.name,
         qty:      String(i.qty      ?? '1'),
         unitCost: String(i.unitCost ?? ''),
+        comment:  i.comment ?? '',
       })),
     })),
   };
@@ -98,11 +86,13 @@ function toPayload(ev: EventEntry) {
     mobile: ev.mobile, eventDate: ev.eventDate,
     location: ev.location, eventType: ev.eventType,
     advance: pf(ev.advance),
+    quotedAmount: pf(ev.quotedAmount),
     decors: ev.decors.map(d => ({
       heading: d.heading, images: d.images,
       taxPct: pf(d.taxPct), discount: pf(d.discount),
+      comment: d.comment,
       items: d.items.filter(i => i.name).map(i => ({
-        name: i.name, qty: pi(i.qty), unitCost: pf(i.unitCost),
+        name: i.name, qty: pi(i.qty), unitCost: pf(i.unitCost), comment: i.comment,
       })),
     })),
   };
@@ -130,11 +120,11 @@ function eventBalance(e:EventEntry):number {
   return eventGrandTotal(e)-pf(e.advance);
 }
 
-const emptyDecorItem = ():DecorItem=>({id:uid(),name:'',qty:'1',unitCost:''});
-const emptySection   = ():DecorSection=>({id:uid(),heading:'',images:[],items:[emptyDecorItem()],taxPct:'',discount:''});
+const emptyDecorItem = ():DecorItem=>({id:uid(),name:'',qty:'1',unitCost:'',comment:''});
+const emptySection   = ():DecorSection=>({id:uid(),heading:'',images:[],items:[emptyDecorItem()],taxPct:'',discount:'',comment:''});
 const emptyEvent     = ():EventEntry=>({
   id:uid(),eventName:'',customerName:'',mobile:'',eventDate:TODAY,
-  location:'',eventType:EVENT_TYPES[0],decors:[emptySection()],advance:'',createdAt:TODAY,
+  location:'',eventType:EVENT_TYPES[0],decors:[emptySection()],advance:'',quotedAmount:'',createdAt:TODAY,
 });
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
@@ -142,11 +132,23 @@ const LT={bg:'#F4F6FB',card:'#FFFFFF',text:'#111827',sub:'#6B7280',border:'#E5E7
 const DK={bg:'#0D1117',card:'#161B22',text:'#E6EDF3',sub:'#8B949E',border:'#30363D',accent:'#818CF8',input:'#0D1117'};
 
 // ─── SelectField ──────────────────────────────────────────────────────────────
-function Sel({label,value,options,onChange,isDark,ph}:{label?:string;value:string;options:string[];onChange(v:string):void;isDark:boolean;ph?:string}) {
+function Sel({label,value,options,onChange,isDark,ph,allowCustom,onAddCustom}:{
+  label?:string;value:string;options:string[];onChange(v:string):void;
+  isDark:boolean;ph?:string;allowCustom?:boolean;onAddCustom?:(name:string)=>void;
+}) {
   const [open,setOpen]=useState(false);
   const [q,setQ]=useState('');
   const t=isDark?DK:LT;
   const fil=options.filter(o=>o.toLowerCase().includes(q.toLowerCase()));
+  const trimmed=q.trim();
+  const canAdd=allowCustom&&trimmed.length>0&&!options.some(o=>o.toLowerCase()===trimmed.toLowerCase());
+
+  function pick(v:string,isNew=false){
+    onChange(v);
+    if(isNew&&onAddCustom) onAddCustom(v);
+    setOpen(false);setQ('');
+  }
+
   return (
     <>
       {label&&<Text style={[s.label,{color:t.sub}]}>{label}</Text>}
@@ -154,17 +156,27 @@ function Sel({label,value,options,onChange,isDark,ph}:{label?:string;value:strin
         <Text style={{color:value?t.text:t.sub,flex:1,fontSize:14}}>{value||ph||'Select...'}</Text>
         <Text style={{color:t.sub}}>▾</Text>
       </TouchableOpacity>
-      <Modal visible={open} transparent statusBarTranslucent animationType="fade" onRequestClose={()=>setOpen(false)}>
-        <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={()=>setOpen(false)}>
+      <Modal visible={open} transparent statusBarTranslucent animationType="fade" onRequestClose={()=>{setOpen(false);setQ('');}}>
+        <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={()=>{setOpen(false);setQ('');}}>
           <View style={[s.selPanel,{backgroundColor:t.card,borderColor:t.border}]} onStartShouldSetResponder={()=>true}>
             <TextInput style={[s.selSearch,{backgroundColor:t.bg,color:t.text,borderColor:t.border}]}
-              placeholder="Search..." placeholderTextColor={t.sub} value={q} onChangeText={setQ} autoFocus/>
+              placeholder="Search or type new item..." placeholderTextColor={t.sub} value={q} onChangeText={setQ} autoFocus/>
             <ScrollView style={{maxHeight:240}}>
+              {canAdd&&(
+                <TouchableOpacity style={[s.selOpt,{flexDirection:'row',alignItems:'center',gap:8,backgroundColor:t.accent+'12',borderRadius:10,marginBottom:4}]}
+                  onPress={()=>pick(trimmed,true)}>
+                  <Text style={{color:t.accent,fontSize:16,fontWeight:'800'}}>+</Text>
+                  <Text style={{color:t.accent,fontWeight:'700',fontSize:14,flex:1}}>Add "{trimmed}"</Text>
+                </TouchableOpacity>
+              )}
               {fil.map(o=>(
-                <TouchableOpacity key={o} style={s.selOpt} onPress={()=>{onChange(o);setOpen(false);}}>
+                <TouchableOpacity key={o} style={s.selOpt} onPress={()=>pick(o)}>
                   <Text style={{color:value===o?t.accent:t.text,fontWeight:value===o?'700':'400',fontSize:14}}>{o}</Text>
                 </TouchableOpacity>
               ))}
+              {fil.length===0&&!canAdd&&(
+                <Text style={{color:t.sub,textAlign:'center',padding:16,fontSize:13}}>No items found</Text>
+              )}
             </ScrollView>
           </View>
         </TouchableOpacity>
@@ -281,7 +293,10 @@ function ImageCarousel({images,onAdd,onRemove,isDark,uploading}:{images:string[]
 }
 
 // ─── Decor Item Row ───────────────────────────────────────────────────────────
-function DecorItemRow({item,onChange,onDelete,isDark,idx}:{item:DecorItem;onChange(p:Partial<DecorItem>):void;onDelete():void;isDark:boolean;idx:number}) {
+function DecorItemRow({item,onChange,onDelete,isDark,idx,allItems,onAddItem}:{
+  item:DecorItem;onChange(p:Partial<DecorItem>):void;onDelete():void;
+  isDark:boolean;idx:number;allItems:string[];onAddItem:(name:string)=>void;
+}) {
   const t=isDark?DK:LT;
   const total=pi(item.qty)*pf(item.unitCost);
   return (
@@ -289,7 +304,7 @@ function DecorItemRow({item,onChange,onDelete,isDark,idx}:{item:DecorItem;onChan
       <View style={{flexDirection:'row',alignItems:'center',marginBottom:6}}>
         <Text style={{color:t.sub,fontSize:11,fontWeight:'700',marginRight:6}}>#{idx+1}</Text>
         <View style={{flex:1}}>
-          <Sel value={item.name} options={DECOR_ITEMS} onChange={v=>onChange({name:v})} isDark={isDark} ph="Select decor item..."/>
+          <Sel value={item.name} options={allItems} onChange={v=>onChange({name:v})} isDark={isDark} ph="Select decor item..." allowCustom onAddCustom={onAddItem}/>
         </View>
         <TouchableOpacity onPress={onDelete} style={{marginLeft:8,padding:4}}>
           <Text style={{color:'#e74c3c',fontSize:16}}>🗑</Text>
@@ -313,13 +328,18 @@ function DecorItemRow({item,onChange,onDelete,isDark,idx}:{item:DecorItem;onChan
           </View>
         </View>
       </View>
+      <TextInput
+        style={[s.miniInp,{backgroundColor:t.card,borderColor:t.border,color:t.text,marginTop:8,height:36}]}
+        value={item.comment} onChangeText={v=>onChange({comment:v})}
+        placeholder="Comment (optional)" placeholderTextColor={t.sub}/>
     </View>
   );
 }
 
 // ─── Decor Section ────────────────────────────────────────────────────────────
-function DecorSectionBlock({section,onChange,onDelete,isDark,idx}:{
-  section:DecorSection;onChange(p:Partial<DecorSection>):void;onDelete():void;isDark:boolean;idx:number;
+function DecorSectionBlock({section,onChange,onDelete,isDark,idx,allItems,onAddItem}:{
+  section:DecorSection;onChange(p:Partial<DecorSection>):void;onDelete():void;
+  isDark:boolean;idx:number;allItems:string[];onAddItem:(name:string)=>void;
 }) {
   const [expanded,setExpanded]=useState(true);
   const [uploading,setUploading]=useState(false);
@@ -400,7 +420,7 @@ function DecorSectionBlock({section,onChange,onDelete,isDark,idx}:{
             <DecorItemRow key={item.id} item={item} idx={i}
               onChange={p=>updateItem(item.id,p)}
               onDelete={()=>deleteItem(item.id)}
-              isDark={isDark}/>
+              isDark={isDark} allItems={allItems} onAddItem={onAddItem}/>
           ))}
           <TouchableOpacity style={[s.addItemBtn,{borderColor:t.accent}]} onPress={addItem}>
             <Text style={{color:t.accent,fontWeight:'700',fontSize:13}}>+ Add Item</Text>
@@ -431,6 +451,16 @@ function DecorSectionBlock({section,onChange,onDelete,isDark,idx}:{
               <Text style={{color:t.accent,fontSize:16,fontWeight:'800'}}>{fmt(total)}</Text>
             </View>
           </View>
+
+          {/* Section Comment */}
+          <Text style={[s.label,{color:t.sub,marginTop:10,marginBottom:6}]}>📝 Section Notes / Comment</Text>
+          <TextInput
+            style={[s.inp,{backgroundColor:t.bg,borderColor:t.border,color:t.text,height:72,textAlignVertical:'top',paddingTop:10}]}
+            value={section.comment}
+            onChangeText={v=>onChange({comment:v})}
+            placeholder="Add notes for this section (optional)..."
+            placeholderTextColor={t.sub}
+            multiline/>
         </View>
       )}
     </View>
@@ -495,8 +525,14 @@ function EventCard({event,onView,onEdit,onDelete,onPrint,isDark}:{
             <Text style={{color:t.sub,fontSize:12}}>{event.customerName} · {event.mobile}</Text>
           </View>
           <View style={{alignItems:'flex-end'}}>
-            <Text style={{color:t.accent,fontSize:16,fontWeight:'800'}}>{fmt(grand)}</Text>
-            <Text style={{color:bal>0?'#e74c3c':'#27ae60',fontSize:11}}>Bal: {fmt(Math.abs(bal))}</Text>
+            {pf(event.quotedAmount)>0
+              ? <Text style={{color:t.accent,fontSize:16,fontWeight:'800'}}>{fmt(pf(event.quotedAmount))}</Text>
+              : <Text style={{color:t.accent,fontSize:16,fontWeight:'800'}}>{fmt(grand)}</Text>
+            }
+            {pf(event.quotedAmount)>0
+              ? <Text style={{color:'#27ae60',fontSize:11}}>Cost: {fmt(grand)}</Text>
+              : <Text style={{color:bal>0?'#e74c3c':'#27ae60',fontSize:11}}>Bal: {fmt(Math.abs(bal))}</Text>
+            }
           </View>
         </View>
         <View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:10}}>
@@ -517,8 +553,9 @@ function EventCard({event,onView,onEdit,onDelete,onPrint,isDark}:{
 }
 
 // ─── Event Detail View ────────────────────────────────────────────────────────
-function EventDetailView({initial,onBack,onSave,isDark}:{
+function EventDetailView({initial,onBack,onSave,isDark,allItems,onAddItem}:{
   initial:EventEntry;onBack():void;onSave(e:EventEntry):void;isDark:boolean;
+  allItems:string[];onAddItem:(name:string)=>void;
 }) {
   const [ev,setEv]=useState<EventEntry>({...initial,decors:initial.decors.map(d=>({...d,items:[...d.items]}))});
   const t=isDark?DK:LT;
@@ -642,13 +679,30 @@ function EventDetailView({initial,onBack,onSave,isDark}:{
           </View>
           {ev.decors.map((d,i)=>(
             <DecorSectionBlock key={d.id} section={d} idx={i}
-              onChange={p=>upDecor(d.id,p)} onDelete={()=>delDecor(d.id)} isDark={isDark}/>
+              onChange={p=>upDecor(d.id,p)} onDelete={()=>delDecor(d.id)}
+              isDark={isDark} allItems={allItems} onAddItem={onAddItem}/>
           ))}
         </View>
 
         {/* Grand Total Panel */}
         <View style={[s.grandPanel,{backgroundColor:t.card,borderColor:t.accent+'30'}]}>
           <Text style={{color:t.accent,fontSize:15,fontWeight:'800',marginBottom:12}}>💎 Event Grand Total</Text>
+
+          {/* Decor Quoted — customer-facing amount */}
+          <View style={[s.quotedBox,{borderColor:t.accent+'50',backgroundColor:t.accent+'08'}]}>
+            <Text style={{color:t.accent,fontSize:12,fontWeight:'700',marginBottom:6}}>
+              Decor Quoted  <Text style={{fontWeight:'400',fontSize:11,color:t.sub}}>(Finalised with Customer)</Text>
+            </Text>
+            <TextInput
+              style={[s.quotedInput,{color:t.accent,borderColor:t.accent+'60',backgroundColor:t.bg}]}
+              keyboardType="numeric"
+              placeholder="Enter quoted amount"
+              placeholderTextColor={t.sub}
+              value={ev.quotedAmount}
+              onChangeText={v=>upEv({quotedAmount:v})}
+            />
+          </View>
+
           {ev.decors.map(d=>(
             <View key={d.id} style={[s.grandRow,{borderBottomColor:t.border}]}>
               <Text style={{color:t.sub,fontSize:12,flex:1}} numberOfLines={1}>{d.heading||'Unnamed Section'}</Text>
@@ -656,9 +710,17 @@ function EventDetailView({initial,onBack,onSave,isDark}:{
             </View>
           ))}
           <View style={[s.grandRow,{borderBottomColor:t.border,paddingTop:10}]}>
-            <Text style={{color:t.text,fontSize:14,fontWeight:'700',flex:1}}>Total Decoration Cost</Text>
+            <Text style={{color:t.text,fontSize:14,fontWeight:'700',flex:1}}>Our Internal Cost</Text>
             <Text style={{color:t.accent,fontSize:15,fontWeight:'800'}}>{fmt(grand)}</Text>
           </View>
+          {pf(ev.quotedAmount)>0&&(
+            <View style={[s.grandRow,{borderBottomColor:t.border}]}>
+              <Text style={{color:t.text,fontSize:13,fontWeight:'700',flex:1}}>Profit / Margin</Text>
+              <Text style={{color:pf(ev.quotedAmount)>=grand?'#27ae60':'#e74c3c',fontSize:14,fontWeight:'800'}}>
+                {fmt(pf(ev.quotedAmount)-grand)}
+              </Text>
+            </View>
+          )}
           <View style={[s.grandRow,{alignItems:'center',borderBottomColor:t.border}]}>
             <Text style={{color:t.sub,fontSize:13,flex:1}}>Advance Amount (₹)</Text>
             <TextInput style={[s.inlineInp,{color:t.text,borderColor:t.border,backgroundColor:t.bg,width:100}]}
@@ -667,7 +729,7 @@ function EventDetailView({initial,onBack,onSave,isDark}:{
           </View>
           <View style={[s.grandRow,{borderBottomWidth:0,paddingTop:10}]}>
             <Text style={{color:bal>0?'#e74c3c':'#27ae60',fontSize:16,fontWeight:'800',flex:1}}>Balance Due</Text>
-            <Text style={{color:bal>0?'#e74c3c':'#27ae60',fontSize:18,fontWeight:'800'}}>{fmt(Math.abs(bal))}</Text>
+            <Text style={{color:bal>0?'#e74c3c':'#27ae60',fontSize:18,fontWeight:'800'}}>{fmt(Math.abs(pf(ev.quotedAmount)>0?pf(ev.quotedAmount)-pf(ev.advance):bal))}</Text>
           </View>
           <TouchableOpacity style={[s.saveBtn,{backgroundColor:t.accent,marginTop:14}]} onPress={()=>onSave(ev)}>
             <Text style={s.saveTxt}>💾 Save Event Estimate</Text>
@@ -778,6 +840,8 @@ export default function GroupsScreen() {
   const [events,setEvents]=useState<EventEntry[]>([]);
   const [loading,setLoading]=useState(true);
   const [activeEvent,setActiveEvent]=useState<EventEntry|null>(null);
+  const {items:decorItems,addItem:addDecorItem,rawItems:decorRawItems,removeItem:removeDecorItem}=useDecorItems();
+  const [showManageItems,setShowManageItems]=useState(false);
 
   const loadEvents=useCallback(async()=>{
     try{
@@ -788,7 +852,7 @@ export default function GroupsScreen() {
     }finally{setLoading(false);}
   },[]);
 
-  useEffect(()=>{loadEvents();},[loadEvents]);
+  useFocusEffect(useCallback(()=>{loadEvents();},[loadEvents]));
 
   function openNew(){setActiveEvent(emptyEvent());setView('detail');}
   function openView(e:EventEntry){setActiveEvent({...e});setView('detail');}
@@ -876,6 +940,9 @@ export default function GroupsScreen() {
               <TouchableOpacity style={[s.iconBtn2,{backgroundColor:isDark?'#fff1':'#7C3AED11',borderColor:t.border}]} onPress={()=>setIsDark(!isDark)}>
                 <Text>{isDark?'☀️':'🌙'}</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={[s.iconBtn2,{backgroundColor:t.accent+'18',borderColor:t.accent+'40'}]} onPress={()=>setShowManageItems(true)}>
+                <Text style={{color:t.accent,fontSize:13,fontWeight:'700'}}>⚙</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={[s.addEvtBtn,{backgroundColor:t.accent}]} onPress={openNew}>
                 <Text style={{color:'#fff',fontWeight:'800',fontSize:13}}>+ New Event</Text>
               </TouchableOpacity>
@@ -887,8 +954,17 @@ export default function GroupsScreen() {
       )}
       {view==='detail'&&activeEvent&&(
         <EventDetailView initial={activeEvent} isDark={isDark}
-          onBack={()=>{setView('dashboard');setActiveEvent(null);}} onSave={handleSave}/>
+          onBack={()=>{setView('dashboard');setActiveEvent(null);}} onSave={handleSave}
+          allItems={decorItems} onAddItem={addDecorItem}/>
       )}
+
+      <ManageDecorItemsModal
+        visible={showManageItems}
+        onClose={()=>setShowManageItems(false)}
+        rawItems={decorRawItems}
+        onAdd={addDecorItem}
+        onRemove={removeDecorItem}
+      />
     </SafeAreaView>
   );
 }
@@ -925,6 +1001,8 @@ const s=StyleSheet.create({
   totRow:       {flexDirection:'row',justifyContent:'space-between',paddingVertical:5},
   grandPanel:   {margin:16,borderRadius:16,borderWidth:2,padding:18,marginTop:6},
   grandRow:     {flexDirection:'row',justifyContent:'space-between',paddingVertical:8,borderBottomWidth:1},
+  quotedBox:    {borderRadius:14,borderWidth:1.5,padding:14,marginBottom:14},
+  quotedInput:  {paddingHorizontal:14,paddingVertical:12,borderRadius:10,borderWidth:1.5,fontSize:18,fontWeight:'700'},
   overlay:      {flex:1,backgroundColor:'rgba(0,0,0,0.55)',justifyContent:'flex-end'},
   sheet:        {borderTopLeftRadius:24,borderTopRightRadius:24,padding:20},
   sheetTitle:   {fontSize:20,fontWeight:'800',letterSpacing:-0.3},

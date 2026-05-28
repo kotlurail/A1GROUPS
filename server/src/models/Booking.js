@@ -40,6 +40,7 @@ const bookingSchema = new Schema(
     extraBenefits: [extraBenefitSchema],
     expenses:      [expenseSchema],
     discount:      { type: Number, default: null },
+    comments:      { type: String, default: '' },
   },
   { timestamps: true }
 );

@@ -5,6 +5,7 @@ const decorItemSchema = new Schema(
     name:     { type: String, default: '' },
     qty:      { type: Number, default: 1 },
     unitCost: { type: Number, default: 0 },
+    comment:  { type: String, default: '' },
   },
   { _id: true }
 );
@@ -16,6 +17,7 @@ const decorSectionSchema = new Schema(
     taxPct:   { type: Number, default: 0 },
     discount: { type: Number, default: 0 },
     items:    [decorItemSchema],
+    comment:  { type: String, default: '' },
   },
   { _id: true }
 );
@@ -29,6 +31,7 @@ const eventEstimateSchema = new Schema(
     location:     { type: String, default: '' },
     eventType:    { type: String, required: true },
     advance:      { type: Number, default: 0 },
+    quotedAmount: { type: Number, default: 0 },
     decors:       [decorSectionSchema],
   },
   { timestamps: true }

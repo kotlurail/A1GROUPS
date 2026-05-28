@@ -11,6 +11,7 @@ const eventRoutes       = require('./routes/events');
 const uploadRoutes      = require('./routes/upload');
 const employeeRoutes    = require('./routes/employees');
 const decorRoutes       = require('./routes/decors');
+const decorItemRoutes   = require('./routes/decor-items');
 const bookingRoutes     = require('./routes/bookings');
 const accountRoutes     = require('./routes/accounts');
 const authRoutes        = require('./routes/auth');
@@ -47,6 +48,7 @@ app.use('/api/events',       requireAuth, eventRoutes);
 app.use('/api/upload',       requireAuth, uploadRoutes);
 app.use('/api/employees',    requireAuth, employeeRoutes);
 app.use('/api/decors',       requireAuth, decorRoutes);
+app.use('/api/decor-items',  requireAuth, decorItemRoutes);
 app.use('/api/bookings',     requireAuth, bookingRoutes);
 app.use('/api/accounts',    requireAuth, accountRoutes);
 

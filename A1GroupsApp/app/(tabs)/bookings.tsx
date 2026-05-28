@@ -3,6 +3,7 @@ import {
   Dimensions,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -12,9 +13,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useCallback, useEffect, useState } from 'react';
+import * as Clipboard from 'expo-clipboard';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { bookingsApi, decorsApi, uploadApi, DecorDoc } from '../../lib/api';
@@ -78,6 +80,7 @@ interface Booking {
   extraBenefits: ExtraBenefit[];
   expenses: Expense[];
   discount?: number;
+  comments: string;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -131,6 +134,7 @@ function normalizeBooking(d: any): Booking {
     acHours:       d.acHours      ?? undefined,
     decorCost:     d.decorCost    ?? undefined,
     discount:      d.discount     ?? undefined,
+    comments:      d.comments     ?? '',
     payments: (d.payments ?? []).map((p: any) => ({
       id: p._id, amount: p.amount, mode: p.mode, date: p.date, time: p.time ?? '', note: p.note,
     })),
@@ -236,10 +240,11 @@ function Calendar({
   const totalDays = daysInMonth(year, month);
   const startDay  = firstDayOfMonth(year, month);
 
-  const dotMap: Record<string, { morning: boolean; evening: boolean }> = {};
+  // Group bookings by date
+  const bookingMap: Record<string, Booking[]> = {};
   bookings.forEach(b => {
-    if (!dotMap[b.date]) dotMap[b.date] = { morning: false, evening: false };
-    dotMap[b.date][b.slot] = true;
+    if (!bookingMap[b.date]) bookingMap[b.date] = [];
+    bookingMap[b.date].push(b);
   });
 
   const cells: (number | null)[] = [
@@ -249,6 +254,10 @@ function Calendar({
   while (cells.length % 7 !== 0) cells.push(null);
 
   const todayStr = toDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+  const slotColor = (b: Booking) =>
+    b.status === 'cancelled' ? '#bdc3c7' :
+    b.slot === 'morning'     ? '#2980b9' : '#8e44ad';
 
   return (
     <View style={cal.container}>
@@ -266,10 +275,10 @@ function Calendar({
         <View key={row} style={cal.row}>
           {cells.slice(row * 7, row * 7 + 7).map((day, col) => {
             if (!day) return <View key={col} style={cal.cell} />;
-            const dateStr   = toDateStr(year, month, day);
-            const dots      = dotMap[dateStr];
-            const isSelected = dateStr === selectedDate;
-            const isToday   = dateStr === todayStr;
+            const dateStr      = toDateStr(year, month, day);
+            const dayBookings  = bookingMap[dateStr] ?? [];
+            const isSelected   = dateStr === selectedDate;
+            const isToday      = dateStr === todayStr;
             return (
               <TouchableOpacity
                 key={col}
@@ -280,12 +289,13 @@ function Calendar({
                 <Text style={[cal.dayNum, isSelected && cal.selectedDayNum, isToday && !isSelected && cal.todayDayNum]}>
                   {day}
                 </Text>
-                {dots ? (
-                  <View style={cal.dots}>
-                    {dots.morning ? <View style={[cal.dot, cal.morningDot]} /> : null}
-                    {dots.evening ? <View style={[cal.dot, cal.eveningDot]} /> : null}
+                {dayBookings.map((b, i) => (
+                  <View key={i} style={[cal.bookingBar, { backgroundColor: slotColor(b) + (isSelected ? 'cc' : '') }]}>
+                    <Text style={cal.bookingBarTxt} numberOfLines={1}>
+                      {b.client.split(' ')[0]}
+                    </Text>
                   </View>
-                ) : null}
+                ))}
               </TouchableOpacity>
             );
           })}
@@ -293,8 +303,89 @@ function Calendar({
       ))}
 
       <View style={cal.legend}>
-        <View style={cal.legendItem}><View style={[cal.dot, cal.morningDot]} /><Text style={cal.legendText}> Morning</Text></View>
-        <View style={cal.legendItem}><View style={[cal.dot, cal.eveningDot]} /><Text style={cal.legendText}> Evening</Text></View>
+        <View style={cal.legendItem}><View style={[cal.legendDot, { backgroundColor: '#2980b9' }]} /><Text style={cal.legendText}>Morning</Text></View>
+        <View style={cal.legendItem}><View style={[cal.legendDot, { backgroundColor: '#8e44ad' }]} /><Text style={cal.legendText}>Evening</Text></View>
+        <View style={cal.legendItem}><View style={[cal.legendDot, { backgroundColor: '#bdc3c7' }]} /><Text style={cal.legendText}>Cancelled</Text></View>
+      </View>
+    </View>
+  );
+}
+
+// ── Year Overview ──────────────────────────────────────────────────────────────
+function YearOverview({
+  year, bookings, onPrevYear, onNextYear, onSelectMonth,
+}: {
+  year: number; bookings: Booking[];
+  onPrevYear: () => void; onNextYear: () => void;
+  onSelectMonth: (month: number) => void;
+}) {
+  return (
+    <View style={yov.container}>
+      {/* Year selector */}
+      <View style={yov.header}>
+        <TouchableOpacity onPress={onPrevYear} style={yov.navBtn}>
+          <Text style={yov.navTxt}>{'<'}</Text>
+        </TouchableOpacity>
+        <Text style={yov.yearTitle}>{year}  —  Year Overview</Text>
+        <TouchableOpacity onPress={onNextYear} style={yov.navBtn}>
+          <Text style={yov.navTxt}>{'>'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* 3 × 4 month grid */}
+      <View style={yov.grid}>
+        {MONTH_NAMES.map((mName, mIdx) => {
+          const mb        = bookings.filter(b => {
+            const d = new Date(b.date);
+            return d.getFullYear() === year && d.getMonth() === mIdx;
+          });
+          const total     = mb.length;
+          const morning   = mb.filter(b => b.slot === 'morning' && b.status !== 'cancelled').length;
+          const evening   = mb.filter(b => b.slot === 'evening' && b.status !== 'cancelled').length;
+          const cancelled = mb.filter(b => b.status === 'cancelled').length;
+          const revenue   = mb.filter(b => b.status !== 'cancelled').reduce((s, b) => s + totalCost(b), 0);
+
+          return (
+            <TouchableOpacity
+              key={mIdx}
+              style={[yov.card, total > 0 && yov.cardActive]}
+              onPress={() => onSelectMonth(mIdx)}
+              activeOpacity={0.75}
+            >
+              <Text style={[yov.mName, total > 0 && yov.mNameActive]}>{mName.slice(0, 3)}</Text>
+
+              {total > 0 ? (
+                <>
+                  <View style={yov.badge}>
+                    <Text style={yov.badgeTxt}>{total} booking{total > 1 ? 's' : ''}</Text>
+                  </View>
+                  <View style={yov.slotRow}>
+                    {morning > 0 && (
+                      <View style={[yov.slotChip, { backgroundColor: '#2980b922' }]}>
+                        <Text style={[yov.slotTxt, { color: '#2980b9' }]}>🌅 {morning}</Text>
+                      </View>
+                    )}
+                    {evening > 0 && (
+                      <View style={[yov.slotChip, { backgroundColor: '#8e44ad22' }]}>
+                        <Text style={[yov.slotTxt, { color: '#8e44ad' }]}>🌆 {evening}</Text>
+                      </View>
+                    )}
+                    {cancelled > 0 && (
+                      <View style={[yov.slotChip, { backgroundColor: '#e74c3c18' }]}>
+                        <Text style={[yov.slotTxt, { color: '#e74c3c' }]}>✕ {cancelled}</Text>
+                      </View>
+                    )}
+                  </View>
+                  {revenue > 0 && (
+                    <Text style={yov.revenue}>{fmtMoney(revenue)}</Text>
+                  )}
+                </>
+              ) : (
+                <Text style={yov.empty}>No bookings</Text>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -306,6 +397,23 @@ function BookingCard({ booking, onPress }: { booking: Booking; onPress: () => vo
   const tc      = totalCost(booking);
   const balance = effectiveBalance(booking);
   const paidPct = tc > 0 ? Math.min(100, Math.round(((tc - balance) / tc) * 100)) : 0;
+  const [phoneCopied, setPhoneCopied] = useState(false);
+
+  function copyPhone() {
+    Clipboard.setStringAsync(booking.phone);
+    setPhoneCopied(true);
+    setTimeout(() => setPhoneCopied(false), 2000);
+  }
+  function openWhatsApp() {
+    Linking.openURL(`https://wa.me/91${booking.phone}`).catch(() =>
+      Alert.alert('Error', 'Could not open WhatsApp.')
+    );
+  }
+  function callPhone() {
+    Linking.openURL(`tel:${booking.phone}`).catch(() =>
+      Alert.alert('Error', 'Could not initiate call.')
+    );
+  }
 
   const statusColor: Record<BookingStatus, string> = {
     confirmed: '#27ae60', pending: '#f39c12', cancelled: '#e74c3c', paid: '#1abc9c',
@@ -329,7 +437,19 @@ function BookingCard({ booking, onPress }: { booking: Booking; onPress: () => vo
         <View style={{ flex: 1 }}>
           <Text style={card.venue}>{booking.venue}</Text>
           <Text style={card.eventName}>{booking.eventName}  ·  {booking.guestCount} guests</Text>
-          <Text style={card.client}>{booking.client}  {booking.phone}</Text>
+          <Text style={card.client}>{booking.client}</Text>
+          <View style={card.phoneRow}>
+            <Text style={card.phoneNum}>{booking.phone}</Text>
+            <TouchableOpacity style={card.actionBtn} onPress={copyPhone}>
+              <Text style={card.actionIcon}>{phoneCopied ? '✓' : '📋'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[card.actionBtn, { backgroundColor: '#E8F8EF' }]} onPress={openWhatsApp}>
+              <Text style={card.actionIcon}>💬</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[card.actionBtn, { backgroundColor: '#EEF0FF' }]} onPress={callPhone}>
+              <Text style={card.actionIcon}>📞</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={[card.badge, { backgroundColor: cardBadgeColor + '22' }]}>
           <Text style={[card.badgeText, { color: cardBadgeColor }]}>{cardBadgeLabel}</Text>
@@ -364,7 +484,7 @@ function BookingCard({ booking, onPress }: { booking: Booking; onPress: () => vo
           <Text style={card.finValue}>{fmtMoney(tc)}</Text>
         </View>
         <View style={card.finItem}>
-          <Text style={card.finLabel}>Advance</Text>
+          <Text style={card.finLabel}>{booking.status === 'paid' ? 'Total Paid' : 'Advance'}</Text>
           <Text style={[card.finValue, { color: '#27ae60' }]}>{fmtMoney(totalAdvancePaid(booking))}</Text>
         </View>
         <View style={card.finItem}>
@@ -1129,6 +1249,7 @@ function BookingDetailModal({
     guestCount: init.guestCount.toString(),
     amount:     init.amount.toString(),
     status:     init.status as BookingStatus,
+    comments:   init.comments,
   });
 
   // Electricity, decor & expense state
@@ -1158,7 +1279,19 @@ function BookingDetailModal({
   const [activeDecor, setActiveDecor]         = useState<{ decor: DecorDoc; mode: 'view' | 'edit' } | null>(null);
 
   const refreshLinked = useCallback(() => {
-    decorsApi.getAll({ bookingId: booking.id }).then(setLinkedDecors).catch(() => {});
+    decorsApi.getAll({ bookingId: booking.id }).then(decors => {
+      setLinkedDecors(decors);
+      // Sync booking's decorCost to the sum of linked decors' quotedAmounts
+      if (decors.length > 0) {
+        const totalQuoted = decors.reduce((s, d) => s + (d.quotedAmount ?? 0), 0);
+        const current = booking.decorCost ?? 0;
+        if (totalQuoted !== current) {
+          const synced = { ...booking, decorCost: totalQuoted > 0 ? totalQuoted : undefined };
+          setBooking(synced);
+          onUpdate(synced).catch(() => {});
+        }
+      }
+    }).catch(() => {});
   }, [booking.id]);
 
   useEffect(() => {
@@ -1170,11 +1303,10 @@ function BookingDetailModal({
     setLinkingDecor(true);
     try {
       await decorsApi.update(decor._id, { bookingId: booking.id });
-      // decorCost is auto-set on backend; update local booking state
-      const decorCost = decor.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+      const decorCost = decor.quotedAmount > 0 ? decor.quotedAmount : undefined;
       const updated = { ...booking, decorCost };
       setBooking(updated);
-      setDecorInput(decorCost.toString());
+      setDecorInput(decorCost ? decorCost.toString() : '');
       onUpdate(updated).catch(() => {});
       await refreshLinked();
     } catch (e: any) {
@@ -1208,11 +1340,13 @@ function BookingDetailModal({
     }
   }
 
-  function handleDecorSaved(updated: DecorDoc) {
-    setActiveDecor(prev => prev ? { ...prev, decor: updated } : null);
-    setLinkedDecors(prev => prev.map(d => d._id === updated._id ? updated : d));
-    const newCost = updated.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
-    const refreshedBooking = { ...booking, decorCost: newCost };
+  function handleDecorSaved(updatedDecor: DecorDoc) {
+    setActiveDecor(prev => prev ? { ...prev, decor: updatedDecor } : null);
+    const newLinked = linkedDecors.map(d => d._id === updatedDecor._id ? updatedDecor : d);
+    setLinkedDecors(newLinked);
+    // Re-sum quoted amounts across ALL linked decors so total stays accurate
+    const totalQuoted = newLinked.reduce((s, d) => s + (d.quotedAmount ?? 0), 0);
+    const refreshedBooking = { ...booking, decorCost: totalQuoted > 0 ? totalQuoted : undefined };
     setBooking(refreshedBooking);
     onUpdate(refreshedBooking).catch(() => {});
   }
@@ -1246,6 +1380,7 @@ function BookingDetailModal({
       guestCount: Number(editForm.guestCount),
       amount:     Number(editForm.amount),
       status:     editForm.status,
+      comments:   editForm.comments.trim(),
     };
     setSavingEdit(true);
     try {
@@ -1489,6 +1624,15 @@ function BookingDetailModal({
                   </TouchableOpacity>
                 ))}
               </View>
+
+              <Text style={form_s.label}>Comments / Notes</Text>
+              <TextInput
+                style={[form_s.input, { height: 90, textAlignVertical: 'top', paddingTop: 10 }]}
+                placeholder="Any notes, special requests, or instructions…"
+                multiline
+                value={editForm.comments}
+                onChangeText={v => setEditForm(f => ({ ...f, comments: v }))}
+              />
 
               <View style={form_s.actions}>
                 <TouchableOpacity style={form_s.cancelBtn} onPress={() => setIsEditing(false)} disabled={savingEdit}><Text style={form_s.cancelTxt}>Cancel</Text></TouchableOpacity>
@@ -1858,7 +2002,8 @@ function BookingDetailModal({
 
               {/* ── Linked decor cards ── */}
               {linkedDecors.map(d => {
-                const decorTotal  = d.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+                const internalDecorCost = d.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
+                const decorTotal  = d.quotedAmount > 0 ? d.quotedAmount : 0;
                 const paid        = d.advanceAmount + d.settledAmount;
                 const balance     = Math.max(0, decorTotal - paid);
                 const sc = d.paymentStatus === 'completed' ? '#27ae60' : d.paymentStatus === 'partial' ? '#f39c12' : '#e74c3c';
@@ -1930,17 +2075,27 @@ function BookingDetailModal({
                       </View>
                     )}
 
+                    {/* No-quote warning */}
+                    {d.quotedAmount === 0 && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff3e0', borderRadius: 8, padding: 9, marginBottom: 8, borderWidth: 1, borderColor: '#f39c1240' }}>
+                        <Text style={{ fontSize: 11, color: '#e67e22', flex: 1 }}>
+                          ⚠️  Decor Quoted not set — ₹0 added to booking total. Open the Decor page to set a quoted amount.
+                        </Text>
+                      </View>
+                    )}
+
                     {/* Payment tiles */}
                     <View style={{ flexDirection: 'row', gap: 6 }}>
                       {[
-                        ['Total Cost',   fmtMoney(decorTotal),        '#8e44ad'],
-                        ['Advance',      fmtMoney(d.advanceAmount),   '#27ae60'],
-                        ['Settled',      fmtMoney(d.settledAmount),   '#27ae60'],
-                        ['Balance',      fmtMoney(balance), balance > 0 ? '#e74c3c' : '#27ae60'],
-                      ].map(([lbl, val, col]) => (
+                        [d.quotedAmount > 0 ? 'Quoted' : 'Not Quoted', fmtMoney(decorTotal), d.quotedAmount > 0 ? '#8e44ad' : '#bdc3c7', d.quotedAmount > 0 ? `Cost: ${fmtMoney(internalDecorCost)}` : 'Set quoted amt'],
+                        ['Advance',   fmtMoney(d.advanceAmount), '#27ae60', null],
+                        ['Settled',   fmtMoney(d.settledAmount),   '#27ae60', null],
+                        ['Balance',   fmtMoney(balance), balance > 0 ? '#e74c3c' : '#27ae60', null],
+                      ].map(([lbl, val, col, sub]) => (
                         <View key={lbl as string} style={{ flex: 1, backgroundColor: '#fff', borderRadius: 8, padding: 7, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' }}>
                           <Text style={{ fontSize: 9, color: '#9B98C0', marginBottom: 2 }}>{lbl}</Text>
                           <Text style={{ fontSize: 12, fontWeight: '800', color: col as string }}>{val}</Text>
+                          {!!sub && <Text style={{ fontSize: 8, color: '#C5C0E0', marginTop: 1 }}>{sub as string}</Text>}
                         </View>
                       ))}
                     </View>
@@ -2293,6 +2448,14 @@ function BookingDetailModal({
               )}
             </View>
 
+            {/* ── Comments ── */}
+            {!!booking.comments && (
+              <View style={det.sectionCard}>
+                <Text style={det.sectionTitle}>Notes & Comments</Text>
+                <Text style={{ fontSize: 14, color: '#444', lineHeight: 21, fontStyle: 'italic' }}>"{booking.comments}"</Text>
+              </View>
+            )}
+
             <TouchableOpacity style={det.closeBtn} onPress={onClose}>
               <Text style={det.closeTxt}>Close</Text>
             </TouchableOpacity>
@@ -2390,6 +2553,7 @@ const EMPTY_FORM = {
   slot: 'morning' as Slot,
   guestCount: '', amount: '',
   status: 'pending' as BookingStatus,
+  comments: '',
 };
 
 function AddBookingModal({ onClose, onSave }: { onClose: () => void; onSave: (b: Omit<Booking, 'id'>) => Promise<void> }) {
@@ -2437,6 +2601,7 @@ function AddBookingModal({ onClose, onSave }: { onClose: () => void; onSave: (b:
         status: form.status,
         extraBenefits: [],
         expenses: [],
+        comments: form.comments.trim(),
       });
       onClose();
     } catch (e: any) {
@@ -2516,6 +2681,15 @@ function AddBookingModal({ onClose, onSave }: { onClose: () => void; onSave: (b:
               ))}
             </View>
 
+            <Text style={form_s.label}>Comments / Notes</Text>
+            <TextInput
+              style={[form_s.input, { height: 90, textAlignVertical: 'top', paddingTop: 10 }]}
+              placeholder="Any notes, special requests, or instructions…"
+              multiline
+              value={form.comments}
+              onChangeText={v => set('comments', v)}
+            />
+
             <View style={form_s.actions}>
               <TouchableOpacity style={form_s.cancelBtn} onPress={onClose} disabled={saving}><Text style={form_s.cancelTxt}>Cancel</Text></TouchableOpacity>
               <TouchableOpacity style={form_s.saveBtn} onPress={handleSave} disabled={saving}><Text style={form_s.saveTxt}>{saving ? 'Saving…' : 'Save Booking'}</Text></TouchableOpacity>
@@ -2541,6 +2715,8 @@ export default function BookingsScreen() {
   const [selectedStatus, setSelectedStatus] = useState<BookingStatus | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [overviewYear, setOverviewYear] = useState(today.getFullYear());
+  const scrollRef = useRef<ScrollView>(null);
 
   const loadBookings = useCallback(async () => {
     try {
@@ -2553,7 +2729,7 @@ export default function BookingsScreen() {
     }
   }, []);
 
-  useEffect(() => { loadBookings(); }, [loadBookings]);
+  useFocusEffect(useCallback(() => { loadBookings(); }, [loadBookings]));
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1);
@@ -2595,20 +2771,40 @@ export default function BookingsScreen() {
     return venueOk && dateOk && statusOk;
   });
 
-  const totalRevenue  = filtered.reduce((s, b) => s + totalCost(b), 0);
-  const totalAdvance  = filtered.reduce((s, b) => s + totalAdvancePaid(b), 0);
+  const totalAmountReceived   = filtered.reduce((s, b) => s + totalAdvancePaid(b), 0);
+  const totalPendingToCollect = filtered
+    .filter(b => b.status !== 'paid' && b.status !== 'cancelled')
+    .reduce((s, b) => s + effectiveBalance(b), 0);
+  const totalAdvanceGiven     = filtered
+    .filter(b => b.status !== 'paid')
+    .reduce((s, b) => s + totalAdvancePaid(b), 0);
   const countPending   = filtered.filter(b => b.status === 'pending').length;
   const countConfirmed = filtered.filter(b => b.status === 'confirmed').length;
   const countCancelled = filtered.filter(b => b.status === 'cancelled').length;
 
+  function handleSelectMonth(m: number) {
+    setYear(overviewYear);
+    setMonth(m);
+    setSelectedDate(null);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
 
         <Calendar
           year={year} month={month} bookings={calendarBookings}
           selectedDate={selectedDate} onSelectDate={setSelectedDate}
           onPrev={prevMonth} onNext={nextMonth}
+        />
+
+        <YearOverview
+          year={overviewYear}
+          bookings={bookings}
+          onPrevYear={() => setOverviewYear(y => y - 1)}
+          onNextYear={() => setOverviewYear(y => y + 1)}
+          onSelectMonth={handleSelectMonth}
         />
 
         {/* Venue chips */}
@@ -2626,15 +2822,17 @@ export default function BookingsScreen() {
             <Text style={styles.summaryNum}>{filtered.length}</Text>
             <Text style={styles.summaryLabel}>Bookings</Text>
           </View>
-          <View style={styles.summaryDiv} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryNum}>{fmtMoney(totalRevenue)}</Text>
-            <Text style={styles.summaryLabel}>Total Revenue</Text>
+          <View style={[styles.summaryItem, styles.summaryItemRight]}>
+            <Text style={styles.summaryNum}>{fmtMoney(totalAmountReceived)}</Text>
+            <Text style={styles.summaryLabel}>Amount Received</Text>
           </View>
-          <View style={styles.summaryDiv} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryNum}>{fmtMoney(totalAdvance)}</Text>
-            <Text style={styles.summaryLabel}>Advance</Text>
+          <View style={[styles.summaryItem, styles.summaryItemBottom]}>
+            <Text style={styles.summaryNum}>{fmtMoney(totalPendingToCollect)}</Text>
+            <Text style={styles.summaryLabel}>Pending to Collect</Text>
+          </View>
+          <View style={[styles.summaryItem, styles.summaryItemRight, styles.summaryItemBottom]}>
+            <Text style={styles.summaryNum}>{fmtMoney(totalAdvanceGiven)}</Text>
+            <Text style={styles.summaryLabel}>Advance Given</Text>
           </View>
         </View>
 
@@ -2716,11 +2914,13 @@ const styles = StyleSheet.create({
   chipActive:     { backgroundColor: '#7B61FF', borderColor: '#7B61FF' },
   chipText:       { fontSize: 13, color: '#6E6E8D', fontWeight: '500' },
   chipTextActive: { color: '#fff', fontWeight: '700' },
-  summary:        { flexDirection: 'row', backgroundColor: '#7B61FF', marginHorizontal: 16, marginBottom: 16, borderRadius: 18, padding: 18, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 },
-  summaryItem:    { flex: 1, alignItems: 'center' },
-  summaryNum:     { fontSize: 14, fontWeight: '800', color: '#fff' },
-  summaryLabel:   { fontSize: 10, color: 'rgba(255,255,255,0.72)', marginTop: 3, fontWeight: '500' },
-  summaryDiv:     { width: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
+  summary:            { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#7B61FF', marginHorizontal: 16, marginBottom: 16, borderRadius: 18, overflow: 'hidden', shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 },
+  summaryItem:        { width: '50%', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 8 },
+  summaryItemRight:   { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.22)' },
+  summaryItemBottom:  { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.22)' },
+  summaryNum:         { fontSize: 14, fontWeight: '800', color: '#fff' },
+  summaryLabel:       { fontSize: 10, color: 'rgba(255,255,255,0.72)', marginTop: 3, fontWeight: '500', textAlign: 'center' },
+  summaryDiv:         { width: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
   statusRow:      { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 16 },
   statusChip:     { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 14, borderWidth: 1 },
   statusChipNum:  { fontSize: 21, fontWeight: '800' },
@@ -2734,26 +2934,45 @@ const styles = StyleSheet.create({
 });
 
 const cal = StyleSheet.create({
-  container:      { backgroundColor: '#FFFFFF', margin: 16, borderRadius: 20, padding: 18, elevation: 2, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 10 },
-  header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  container:      { backgroundColor: '#FFFFFF', margin: 16, borderRadius: 20, padding: 14, elevation: 2, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 10 },
+  header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   navBtn:         { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(123,97,255,0.1)', alignItems: 'center', justifyContent: 'center' },
   navText:        { fontSize: 18, color: '#7B61FF', fontWeight: '700' },
   monthTitle:     { fontSize: 17, fontWeight: '800', color: '#1A1A2E', letterSpacing: -0.2 },
   row:            { flexDirection: 'row' },
-  dayName:        { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700', color: '#9B98C0', paddingVertical: 5 },
-  cell:           { flex: 1, alignItems: 'center', paddingVertical: 5, minHeight: 46 },
-  selectedCell:   { backgroundColor: '#7B61FF', borderRadius: 12 },
-  todayCell:      { backgroundColor: 'rgba(123,97,255,0.1)', borderRadius: 12 },
-  dayNum:         { fontSize: 13, color: '#1A1A2E', fontWeight: '500' },
-  selectedDayNum: { color: '#fff', fontWeight: '700' },
+  dayName:        { flex: 1, textAlign: 'center', fontSize: 10, fontWeight: '700', color: '#9B98C0', paddingVertical: 4 },
+  cell:           { flex: 1, alignItems: 'stretch', paddingVertical: 4, paddingHorizontal: 1, minHeight: 62 },
+  selectedCell:   { backgroundColor: 'rgba(123,97,255,0.1)', borderRadius: 10 },
+  todayCell:      { borderWidth: 1.5, borderColor: '#7B61FF', borderRadius: 10 },
+  dayNum:         { fontSize: 11, color: '#1A1A2E', fontWeight: '600', textAlign: 'center', marginBottom: 2 },
+  selectedDayNum: { color: '#7B61FF', fontWeight: '800' },
   todayDayNum:    { color: '#7B61FF', fontWeight: '800' },
-  dots:           { flexDirection: 'row', gap: 3, marginTop: 2 },
-  dot:            { width: 6, height: 6, borderRadius: 3 },
-  morningDot:     { backgroundColor: '#3B82F6' },
-  eveningDot:     { backgroundColor: '#7C3AED' },
-  legend:         { flexDirection: 'row', justifyContent: 'center', gap: 22, marginTop: 12 },
-  legendItem:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendText:     { fontSize: 11, color: '#6E6E8D', fontWeight: '500' },
+  bookingBar:     { borderRadius: 3, paddingHorizontal: 3, paddingVertical: 2, marginBottom: 2 },
+  bookingBarTxt:  { fontSize: 8, color: '#fff', fontWeight: '700' },
+  legend:         { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 10 },
+  legendItem:     { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot:      { width: 8, height: 8, borderRadius: 4 },
+  legendText:     { fontSize: 10, color: '#6E6E8D', fontWeight: '500' },
+});
+
+const yov = StyleSheet.create({
+  container: { backgroundColor: '#FFFFFF', marginHorizontal: 16, marginBottom: 16, borderRadius: 20, padding: 16, elevation: 2, shadowColor: '#7B61FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 10 },
+  header:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  navBtn:    { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(123,97,255,0.1)', alignItems: 'center', justifyContent: 'center' },
+  navTxt:    { fontSize: 16, color: '#7B61FF', fontWeight: '800' },
+  yearTitle: { fontSize: 15, fontWeight: '800', color: '#1A1A2E', letterSpacing: -0.2 },
+  grid:      { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 },
+  card:      { width: '31%', backgroundColor: '#F7F5FF', borderRadius: 14, padding: 10, alignItems: 'center', minHeight: 88, justifyContent: 'center' },
+  cardActive:{ backgroundColor: 'rgba(123,97,255,0.08)', borderWidth: 1.5, borderColor: 'rgba(123,97,255,0.25)' },
+  mName:     { fontSize: 13, fontWeight: '700', color: '#9B98C0', marginBottom: 6 },
+  mNameActive:{ color: '#7B61FF' },
+  badge:     { backgroundColor: '#7B61FF', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 6 },
+  badgeTxt:  { fontSize: 10, color: '#fff', fontWeight: '800' },
+  slotRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'center', marginBottom: 5 },
+  slotChip:  { borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },
+  slotTxt:   { fontSize: 9, fontWeight: '700' },
+  revenue:   { fontSize: 10, fontWeight: '700', color: '#27ae60' },
+  empty:     { fontSize: 10, color: '#C5C0E0', fontWeight: '500', marginTop: 4 },
 });
 
 const card = StyleSheet.create({
@@ -2762,6 +2981,10 @@ const card = StyleSheet.create({
   venue:     { fontSize: 16, fontWeight: '800', color: '#1A1A2E', letterSpacing: -0.2 },
   eventName: { fontSize: 13, color: '#7B61FF', fontWeight: '600', marginTop: 2 },
   client:    { fontSize: 12, color: '#9B98C0', marginTop: 2, fontWeight: '500' },
+  phoneRow:  { flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 6 },
+  phoneNum:  { fontSize: 12, color: '#6E6E8D', fontWeight: '600', flex: 1 },
+  actionBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#F7F5FF', alignItems: 'center', justifyContent: 'center' },
+  actionIcon:{ fontSize: 13 },
   badge:     { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 22 },
   badgeText: { fontSize: 11, fontWeight: '700' },
   metaRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },

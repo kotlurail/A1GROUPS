@@ -129,7 +129,7 @@ export interface RentalEntry {
   createdAt:     string;
 }
 
-export interface DecorItemPayload  { _id?: string; name: string; qty: number; unitCost: number; }
+export interface DecorItemPayload  { _id?: string; name: string; qty: number; unitCost: number; comment: string; }
 export interface DecorSectionPayload {
   _id?:     string;
   heading:  string;
@@ -137,6 +137,7 @@ export interface DecorSectionPayload {
   taxPct:   number;
   discount: number;
   items:    DecorItemPayload[];
+  comment:  string;
 }
 export interface EventEstimate {
   _id:          string;
@@ -147,6 +148,7 @@ export interface EventEstimate {
   location:     string;
   eventType:    string;
   advance:      number;
+  quotedAmount: number;
   decors:       DecorSectionPayload[];
   createdAt:    string;
 }
@@ -297,6 +299,7 @@ export interface BookingDoc {
   extraBenefits: ExtraBenefitDoc[];
   expenses: ExpenseDoc[];
   discount?: number | null;
+  comments: string;
   createdAt: string;
 }
 
@@ -310,6 +313,19 @@ export const bookingsApi = {
   create: (body: Omit<BookingDoc, '_id' | 'createdAt'>) => post<BookingDoc>('/api/bookings', body),
   update: (id: string, body: Partial<Omit<BookingDoc, '_id' | 'createdAt'>>) => put<BookingDoc>(`/api/bookings/${id}`, body),
   remove: (id: string) => del<{ message: string }>(`/api/bookings/${id}`),
+};
+
+// ─── Decor Master Items API ───────────────────────────────────────────────────
+
+export interface DecorMasterItem {
+  _id: string;
+  name: string;
+}
+
+export const decorItemsApi = {
+  getAll: ()                  => get<DecorMasterItem[]>('/api/decor-items'),
+  create: (name: string)      => post<DecorMasterItem>('/api/decor-items', { name }),
+  remove: (id: string)        => del<{ message: string }>(`/api/decor-items/${id}`),
 };
 
 // ─── Decors API ────────────────────────────────────────────────────────────────
@@ -341,6 +357,7 @@ export interface DecorDoc {
   requiredItems: RequiredItemDoc[];
   advanceAmount: number;
   settledAmount: number;
+  quotedAmount: number;
   paymentStatus: 'pending' | 'partial' | 'completed';
   comments: string;
   createdDate: string;

@@ -12,11 +12,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { decorsApi, bookingsApi, uploadApi, BookingDoc } from '../../lib/api';
+import * as Clipboard from 'expo-clipboard';
+import { useDecorItems } from '../../lib/useDecorItems';
+import ManageDecorItemsModal from '../../lib/ManageDecorItemsModal';
 import ImageViewer from '../../lib/ImageViewer';
 
 let ImagePicker: any = null;
@@ -54,6 +58,7 @@ interface DecorEntry {
   requiredItems: RequiredItem[];
   advanceAmount: number;
   settledAmount: number;
+  quotedAmount: number;
   paymentStatus: PaymentStatus;
   comments: string;
   createdDate: string;
@@ -67,20 +72,6 @@ const EVENT_TYPES = [
   'Anniversary','Corporate Event','Others',
 ];
 
-const DECOR_OPTIONS = [
-  'Flower Arrangement','Stage Decoration','Backdrop','Balloon Decoration',
-  'LED Lights','Candles','Table Centerpiece','Gate Decoration',
-  'Mandap Decoration','Car Decoration','Photo Booth','Fairy Lights',
-  'Floral Arch','Draping','Throne Chair','Welcome Board',
-  'Petal Path','Toran','Rangoli','Lanterns','Other',
-];
-
-const REQUIRED_OPTIONS = [
-  'Fresh Flowers','Artificial Flowers','Balloons','Candles',
-  'Ribbon','Fabric / Cloth','LED Strip Lights','Spotlights',
-  'Extension Cords','Tables','Chairs','Thermocol','Foam Sheets',
-  'Wire','Tape','Paint','Glitter','Feathers','Other',
-];
 
 const SORT_OPTIONS = ['Newest First','Oldest First','Upcoming First','Cost: High to Low','Cost: Low to High'];
 
@@ -107,12 +98,15 @@ function fmtDate(d: string) {
 function decorTotal(e: DecorEntry) {
   return e.decorItems.reduce((s, i) => s + i.quantity * i.costPerUnit, 0);
 }
+function effectiveTotal(e: DecorEntry) {
+  return e.quotedAmount > 0 ? e.quotedAmount : decorTotal(e);
+}
 function calcBalance(e: DecorEntry) {
-  return Math.max(0, decorTotal(e) - e.advanceAmount - e.settledAmount);
+  return Math.max(0, effectiveTotal(e) - e.advanceAmount - e.settledAmount);
 }
 function autoStatus(e: DecorEntry): PaymentStatus {
   const paid = e.advanceAmount + e.settledAmount;
-  const total = decorTotal(e);
+  const total = effectiveTotal(e);
   if (total > 0 && paid >= total) return 'completed';
   if (paid > 0) return 'partial';
   return 'pending';
@@ -138,6 +132,7 @@ function normalizeDecor(d: any): DecorEntry {
     })),
     advanceAmount: d.advanceAmount ?? 0,
     settledAmount: d.settledAmount ?? 0,
+    quotedAmount:  d.quotedAmount  ?? 0,
     paymentStatus: d.paymentStatus ?? 'pending',
     comments: d.comments ?? '',
     createdDate: d.createdDate ?? '',
@@ -190,12 +185,32 @@ function DatePickerField({ value, onChange, style }: { value: string; onChange: 
 }
 
 // ── Searchable Select ──────────────────────────────────────────────────────────
-function SelectField({ value, options, onChange, placeholder, style }: {
-  value: string; options: string[]; onChange: (v: string) => void; placeholder?: string; style?: any;
+function SelectField({ value, options, onChange, placeholder, style, allowCustom, onAddCustom }: {
+  value: string; options: string[]; onChange: (v: string) => void;
+  placeholder?: string; style?: any; allowCustom?: boolean; onAddCustom?: (name: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const inputRef = useRef<TextInput>(null);
   const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
+  const trimmed = search.trim();
+  const canAdd = allowCustom && trimmed.length > 0 && !options.some(o => o.toLowerCase() === trimmed.toLowerCase());
+
+  // Delay focus so modal animation finishes before keyboard appears — prevents
+  // the keyboard-show event from triggering the backdrop and closing the dropdown.
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => inputRef.current?.focus(), 150);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  function pick(v: string, isNew = false) {
+    onChange(v);
+    if (isNew && onAddCustom) onAddCustom(v);
+    setOpen(false); setSearch('');
+  }
+
   return (
     <>
       <TouchableOpacity style={[sel.trigger, style]} onPress={() => setOpen(true)} activeOpacity={0.8}>
@@ -203,21 +218,37 @@ function SelectField({ value, options, onChange, placeholder, style }: {
         <Text style={sel.arrow}>&#9660;</Text>
       </TouchableOpacity>
       <Modal transparent statusBarTranslucent animationType="fade" visible={open} onRequestClose={() => { setOpen(false); setSearch(''); }}>
-        <TouchableOpacity style={sel.overlay} onPress={() => { setOpen(false); setSearch(''); }} activeOpacity={1}>
-          <View style={sel.sheet}>
-            <TextInput style={sel.search} placeholder="Search..." value={search} onChangeText={setSearch} autoFocus placeholderTextColor="#9B98C0" />
-            <ScrollView style={{ maxHeight: Math.min(320, SH * 0.45) }} keyboardShouldPersistTaps="handled">
-              {filtered.map(o => (
-                <TouchableOpacity key={o} style={[sel.option, value === o && sel.optionActive]}
-                  onPress={() => { onChange(o); setOpen(false); setSearch(''); }}>
-                  <Text style={[sel.optionTxt, value === o && sel.optionActiveTxt]}>{o}</Text>
-                  {value === o && <Text style={{ color: '#7B61FF', fontWeight: '700' }}>&#10003;</Text>}
-                </TouchableOpacity>
-              ))}
-              {filtered.length === 0 && <Text style={sel.noResult}>No results</Text>}
-            </ScrollView>
+        <View style={{ flex: 1 }}>
+          {/* Backdrop sits behind everything — absolutely fills the screen */}
+          <TouchableOpacity
+            style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.42)' }]}
+            onPress={() => { setOpen(false); setSearch(''); }}
+            activeOpacity={1}
+          />
+          {/* Centering wrapper — box-none means this View itself never receives touches,
+              so taps outside the sheet fall through to the backdrop above */}
+          <View style={sel.centerer} pointerEvents="box-none">
+            <View style={sel.sheet}>
+              <TextInput ref={inputRef} style={sel.search} placeholder="Search or type new item..." value={search} onChangeText={setSearch} placeholderTextColor="#9B98C0" />
+              <ScrollView style={{ maxHeight: Math.min(320, SH * 0.45) }} keyboardShouldPersistTaps="handled">
+                {canAdd && (
+                  <TouchableOpacity style={[sel.option, { backgroundColor: 'rgba(123,97,255,0.08)', borderRadius: 10, marginBottom: 4 }]}
+                    onPress={() => pick(trimmed, true)}>
+                    <Text style={[sel.optionTxt, { color: '#7B61FF', fontWeight: '700' }]}>+ Add "{trimmed}"</Text>
+                  </TouchableOpacity>
+                )}
+                {filtered.map(o => (
+                  <TouchableOpacity key={o} style={[sel.option, value === o && sel.optionActive]}
+                    onPress={() => pick(o)}>
+                    <Text style={[sel.optionTxt, value === o && sel.optionActiveTxt]}>{o}</Text>
+                    {value === o && <Text style={{ color: '#7B61FF', fontWeight: '700' }}>&#10003;</Text>}
+                  </TouchableOpacity>
+                ))}
+                {filtered.length === 0 && !canAdd && <Text style={sel.noResult}>No results</Text>}
+              </ScrollView>
+            </View>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </>
   );
@@ -309,9 +340,10 @@ function DecorCard({ entry, onView, onEdit, onPrint, onDelete }: {
   entry: DecorEntry;
   onView: () => void; onEdit: () => void; onPrint: () => void; onDelete: () => void;
 }) {
-  const total    = decorTotal(entry);
-  const bal      = calcBalance(entry);
-  const upcoming = isUpcoming(entry);
+  const internalCost = decorTotal(entry);
+  const total        = effectiveTotal(entry);
+  const bal          = calcBalance(entry);
+  const upcoming     = isUpcoming(entry);
 
   return (
     <View style={dc.card}>
@@ -352,8 +384,9 @@ function DecorCard({ entry, onView, onEdit, onPrint, onDelete }: {
 
       <View style={dc.finRow}>
         <View style={dc.finItem}>
-          <Text style={dc.finLabel}>Total Cost</Text>
-          <Text style={dc.finVal}>{fmtMoney(total)}</Text>
+          <Text style={dc.finLabel}>{entry.quotedAmount > 0 ? 'Quoted' : 'Our Cost'}</Text>
+          <Text style={[dc.finVal, entry.quotedAmount > 0 && { color: '#7B61FF' }]}>{fmtMoney(total)}</Text>
+          {entry.quotedAmount > 0 && <Text style={{ fontSize: 10, color: '#9B98C0', marginTop: 1 }}>Cost: {fmtMoney(internalCost)}</Text>}
         </View>
         <View style={dc.finItem}>
           <Text style={dc.finLabel}>Paid</Text>
@@ -390,11 +423,13 @@ function DecorCard({ entry, onView, onEdit, onPrint, onDelete }: {
 }
 
 // ── Decor Detail Modal ─────────────────────────────────────────────────────────
-function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpdate }: {
+function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpdate, decorItemOptions, onAddDecorItem }: {
   entry: DecorEntry; isNew?: boolean;
   onClose: () => void;
   onCreate?: (e: DecorEntry) => Promise<void>;
   onUpdate?: (e: DecorEntry) => Promise<void>;
+  decorItemOptions: string[];
+  onAddDecorItem: (name: string) => void;
 }) {
   const insets = useSafeAreaInsets();
   const [entry, setEntry]         = useState<DecorEntry>(init);
@@ -473,6 +508,28 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
 
   const total = decorTotal(entry);
   const bal   = calcBalance(entry);
+
+  const [copiedSection, setCopiedSection] = useState<'decor' | 'required' | null>(null);
+
+  function copyDecorItems() {
+    const lines = entry.decorItems
+      .filter(i => i.name)
+      .map(i => `• ${i.name} - ${i.quantity}`)
+      .join('\n');
+    Clipboard.setStringAsync(`Decor Items (${entry.decorItems.length}):\n${lines}\n\nTotal: ${fmtMoney(total)}`);
+    setCopiedSection('decor');
+    setTimeout(() => setCopiedSection(null), 2000);
+  }
+
+  function copyRequiredItems() {
+    const lines = entry.requiredItems
+      .filter(r => r.name)
+      .map(r => `• ${r.name} - ${r.quantity}${r.description ? ' — ' + r.description : ''}`)
+      .join('\n');
+    Clipboard.setStringAsync(`Items Required (${entry.requiredItems.length}):\n${lines}`);
+    setCopiedSection('required');
+    setTimeout(() => setCopiedSection(null), 2000);
+  }
 
   return (
     <Modal transparent={false} statusBarTranslucent animationType="slide" onRequestClose={isNew ? onClose : onClose}>
@@ -658,11 +715,18 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
             <View style={dmod.section}>
               <View style={dmod.sectionHeader}>
                 <Text style={dmod.sectionTitle}>Decor Items</Text>
-                {isEditing && (
-                  <TouchableOpacity style={dmod.addRowBtn} onPress={addDecorItem}>
-                    <Text style={dmod.addRowTxt}>+ Add Item</Text>
-                  </TouchableOpacity>
-                )}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {entry.decorItems.length > 0 && (
+                    <TouchableOpacity style={dmod.copyBtn} onPress={copyDecorItems}>
+                      <Text style={dmod.copyBtnTxt}>{copiedSection === 'decor' ? '✓ Copied' : 'Copy'}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {isEditing && (
+                    <TouchableOpacity style={dmod.addRowBtn} onPress={addDecorItem}>
+                      <Text style={dmod.addRowTxt}>+ Add Item</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
 
               {entry.decorItems.length === 0 ? (
@@ -682,9 +746,10 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                       {isEditing ? (
                         <>
                           <View style={{ flex: 3 }}>
-                            <SelectField value={item.name} options={DECOR_OPTIONS}
+                            <SelectField value={item.name} options={decorItemOptions}
                               onChange={v => updateDecorItem(item.id, { name: v })}
-                              placeholder="Select" style={dmod.cellInput} />
+                              placeholder="Select" style={dmod.cellInput}
+                              allowCustom onAddCustom={onAddDecorItem} />
                           </View>
                           <TextInput style={[dmod.cellInput, { flex: 1, textAlign: 'right' }]}
                             keyboardType="number-pad" value={item.quantity > 0 ? item.quantity.toString() : ''}
@@ -726,7 +791,22 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
 
               {isEditing ? (
                 <>
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                  {/* Decor Quoted — customer-facing price finalised */}
+                  <View style={dmod.quotedBox}>
+                    <Text style={dmod.quotedLabel}>
+                      Decor Quoted  <Text style={{ fontWeight: '400', fontSize: 11, color: '#9B98C0' }}>(Finalised with Customer)</Text>
+                    </Text>
+                    <TextInput
+                      style={dmod.quotedInput}
+                      keyboardType="number-pad"
+                      placeholder="Enter quoted amount"
+                      placeholderTextColor="#9B98C0"
+                      value={entry.quotedAmount > 0 ? entry.quotedAmount.toString() : ''}
+                      onChangeText={v => upd({ quotedAmount: Number(v) || 0 })}
+                    />
+                  </View>
+
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
                     <View style={{ flex: 1 }}>
                       <Text style={dmod.label}>Advance Amount (Rs.)</Text>
                       <TextInput style={dmod.input} keyboardType="number-pad" placeholder="0"
@@ -741,12 +821,26 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                     </View>
                   </View>
                   <View style={dmod.calcBox}>
+                    {entry.quotedAmount > 0 && (
+                      <View style={dmod.calcRow}>
+                        <Text style={dmod.calcLabel}>Quoted to Customer</Text>
+                        <Text style={[dmod.calcVal, { color: '#7B61FF', fontWeight: '700' }]}>{fmtMoney(entry.quotedAmount)}</Text>
+                      </View>
+                    )}
                     <View style={dmod.calcRow}>
-                      <Text style={dmod.calcLabel}>Total Decor Cost</Text>
+                      <Text style={dmod.calcLabel}>Our Internal Cost</Text>
                       <Text style={dmod.calcVal}>{fmtMoney(total)}</Text>
                     </View>
+                    {entry.quotedAmount > 0 && (
+                      <View style={dmod.calcRow}>
+                        <Text style={dmod.calcLabel}>Profit / Margin</Text>
+                        <Text style={[dmod.calcVal, { color: entry.quotedAmount >= total ? '#27ae60' : '#e74c3c', fontWeight: '700' }]}>
+                          {fmtMoney(entry.quotedAmount - total)}
+                        </Text>
+                      </View>
+                    )}
                     <View style={dmod.calcRow}>
-                      <Text style={dmod.calcLabel}>Total Paid</Text>
+                      <Text style={dmod.calcLabel}>Total Paid by Customer</Text>
                       <Text style={[dmod.calcVal, { color: '#27ae60' }]}>- {fmtMoney(entry.advanceAmount + entry.settledAmount)}</Text>
                     </View>
                     <View style={[dmod.calcRow, dmod.calcTotalRow]}>
@@ -758,7 +852,9 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
               ) : (
                 <View style={dmod.payGrid}>
                   {([
-                    ['Total Cost',  fmtMoney(total),                          '#1A1A2E'],
+                    ...(entry.quotedAmount > 0 ? [['Quoted', fmtMoney(entry.quotedAmount), '#7B61FF']] : []),
+                    ['Our Cost',  fmtMoney(total),                          '#1A1A2E'],
+                    ...(entry.quotedAmount > 0 ? [['Margin', fmtMoney(entry.quotedAmount - total), entry.quotedAmount >= total ? '#27ae60' : '#e74c3c']] : []),
                     ['Advance',     fmtMoney(entry.advanceAmount),             '#27ae60'],
                     ['Settled',     fmtMoney(entry.settledAmount),             '#27ae60'],
                     ['Balance',     fmtMoney(bal), bal > 0 ? '#e74c3c' : '#27ae60'],
@@ -782,11 +878,18 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
             <View style={dmod.section}>
               <View style={dmod.sectionHeader}>
                 <Text style={dmod.sectionTitle}>Items Required</Text>
-                {isEditing && (
-                  <TouchableOpacity style={dmod.addRowBtn} onPress={addRequiredItem}>
-                    <Text style={dmod.addRowTxt}>+ Add Row</Text>
-                  </TouchableOpacity>
-                )}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {entry.requiredItems.length > 0 && (
+                    <TouchableOpacity style={dmod.copyBtn} onPress={copyRequiredItems}>
+                      <Text style={dmod.copyBtnTxt}>{copiedSection === 'required' ? '✓ Copied' : 'Copy'}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {isEditing && (
+                    <TouchableOpacity style={dmod.addRowBtn} onPress={addRequiredItem}>
+                      <Text style={dmod.addRowTxt}>+ Add Row</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
 
               {entry.requiredItems.length === 0 ? (
@@ -797,9 +900,10 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                     {isEditing ? (
                       <>
                         <View style={{ flex: 2 }}>
-                          <SelectField value={r.name} options={REQUIRED_OPTIONS}
+                          <SelectField value={r.name} options={decorItemOptions}
                             onChange={v => updateRequiredItem(r.id, { name: v })}
-                            placeholder="Select item" style={dmod.cellInput} />
+                            placeholder="Select item" style={dmod.cellInput}
+                            allowCustom onAddCustom={onAddDecorItem} />
                         </View>
                         <TextInput style={[dmod.cellInput, { flex: 1 }]}
                           keyboardType="number-pad" placeholder="Qty"
@@ -913,6 +1017,8 @@ export default function DecorScreen() {
   const [showSort,        setShowSort]        = useState(false);
   const [selected,        setSelected]        = useState<{ entry: DecorEntry; editing: boolean } | null>(null);
   const [showNew,         setShowNew]         = useState(false);
+  const { items: decorItemOptions, addItem: onAddDecorItem, rawItems: decorRawItems, removeItem: removeDecorItem } = useDecorItems();
+  const [showManageItems, setShowManageItems] = useState(false);
 
   const loadDecors = useCallback(async () => {
     try {
@@ -922,13 +1028,13 @@ export default function DecorScreen() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { loadDecors(); }, [loadDecors]);
+  useFocusEffect(useCallback(() => { loadDecors(); }, [loadDecors]));
 
   function newEntry(): DecorEntry {
     return {
       id: uid(), eventName: '', eventType: '', customerName: '', mobile: '',
       eventDate: '', location: '', images: [], decorItems: [], requiredItems: [],
-      advanceAmount: 0, settledAmount: 0, paymentStatus: 'pending',
+      quotedAmount: 0, advanceAmount: 0, settledAmount: 0, paymentStatus: 'pending',
       comments: '', createdDate: nowDate(),
     };
   }
@@ -987,7 +1093,7 @@ export default function DecorScreen() {
     return 0;
   });
 
-  const totalRevenue  = entries.reduce((s, e) => s + decorTotal(e), 0);
+  const totalRevenue  = entries.reduce((s, e) => s + effectiveTotal(e), 0);
   const pendingBal    = entries.reduce((s, e) => s + calcBalance(e), 0);
   const upcomingCount = entries.filter(isUpcoming).length;
 
@@ -996,9 +1102,14 @@ export default function DecorScreen() {
       {/* Top bar */}
       <View style={main.topBar}>
         <Text style={main.topTitle}>Decor</Text>
-        <TouchableOpacity style={main.addBtn} onPress={() => setShowNew(true)}>
-          <Text style={main.addBtnTxt}>+ Add Decor</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={main.manageBtn} onPress={() => setShowManageItems(true)}>
+            <Text style={main.manageBtnTxt}>⚙ Items</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={main.addBtn} onPress={() => setShowNew(true)}>
+            <Text style={main.addBtnTxt}>+ Add Decor</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[0]}>
@@ -1105,6 +1216,8 @@ export default function DecorScreen() {
           isNew={false}
           onClose={() => setSelected(null)}
           onUpdate={handleUpdate}
+          decorItemOptions={decorItemOptions}
+          onAddDecorItem={onAddDecorItem}
         />
       )}
 
@@ -1114,8 +1227,18 @@ export default function DecorScreen() {
           entry={newEntry()} isNew
           onClose={() => setShowNew(false)}
           onCreate={handleCreate}
+          decorItemOptions={decorItemOptions}
+          onAddDecorItem={onAddDecorItem}
         />
       )}
+
+      <ManageDecorItemsModal
+        visible={showManageItems}
+        onClose={() => setShowManageItems(false)}
+        rawItems={decorRawItems}
+        onAdd={onAddDecorItem}
+        onRemove={removeDecorItem}
+      />
     </View>
   );
 }
@@ -1127,6 +1250,8 @@ const main = StyleSheet.create({
   topTitle:       { fontSize: 22, fontWeight: '800', color: '#1A1A2E', letterSpacing: -0.3 },
   addBtn:         { backgroundColor: '#7B61FF', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 22 },
   addBtnTxt:      { color: '#fff', fontWeight: '700', fontSize: 14, letterSpacing: 0.1 },
+  manageBtn:      { backgroundColor: 'rgba(123,97,255,0.12)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(123,97,255,0.25)' },
+  manageBtnTxt:   { color: '#7B61FF', fontWeight: '700', fontSize: 13 },
   stickyBar:      { backgroundColor: '#EEF0FF', paddingTop: 12, paddingBottom: 4 },
   searchRow:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 10, marginBottom: 10 },
   searchInput:    { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)', paddingHorizontal: 16, paddingVertical: 11, fontSize: 14, color: '#1A1A2E' },
@@ -1219,10 +1344,15 @@ const dmod = StyleSheet.create({
   totalBarVal:   { fontSize: 17, fontWeight: '800', color: '#fff' },
   addRowBtn:     { backgroundColor: 'rgba(123,97,255,0.1)', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 7 },
   addRowTxt:     { fontSize: 12, fontWeight: '700', color: '#7B61FF' },
+  copyBtn:       { backgroundColor: 'rgba(39,174,96,0.1)', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(39,174,96,0.25)' },
+  copyBtnTxt:    { fontSize: 12, fontWeight: '700', color: '#27ae60' },
   payGrid:       { flexDirection: 'row', gap: 8, marginBottom: 12 },
   payGridItem:   { flex: 1, backgroundColor: '#F7F5FF', borderRadius: 12, padding: 12, alignItems: 'center' },
   payGridLabel:  { fontSize: 10, color: '#9B98C0', marginBottom: 4, fontWeight: '500' },
   payGridVal:    { fontSize: 14, fontWeight: '800', color: '#1A1A2E' },
+  quotedBox:     { backgroundColor: 'rgba(123,97,255,0.07)', borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: 'rgba(123,97,255,0.3)' },
+  quotedLabel:   { fontSize: 13, fontWeight: '700', color: '#7B61FF', marginBottom: 8 },
+  quotedInput:   { backgroundColor: '#fff', borderRadius: 10, borderWidth: 1.5, borderColor: '#7B61FF', paddingHorizontal: 14, paddingVertical: 12, fontSize: 18, fontWeight: '700', color: '#7B61FF' },
   calcBox:       { backgroundColor: '#F7F5FF', borderRadius: 14, padding: 14, marginTop: 12, borderWidth: 1, borderColor: 'rgba(123,97,255,0.12)' },
   calcRow:       { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
   calcTotalRow:  { borderTopWidth: 1, borderTopColor: 'rgba(123,97,255,0.15)', marginTop: 4, paddingTop: 10 },
@@ -1258,6 +1388,7 @@ const sel = StyleSheet.create({
   triggerTxt:     { fontSize: 14, color: '#1A1A2E', flex: 1 },
   arrow:          { fontSize: 11, color: '#9B98C0', marginLeft: 4 },
   overlay:        { flex: 1, backgroundColor: 'rgba(0,0,0,0.42)', justifyContent: 'center', alignItems: 'center' },
+  centerer:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
   sheet:          { backgroundColor: '#fff', borderRadius: 18, padding: 16, width: SW * 0.88, maxHeight: SH * 0.6 },
   search:         { backgroundColor: '#F7F5FF', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(123,97,255,0.15)', paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, marginBottom: 8 },
   option:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12, borderRadius: 8 },

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
   StyleSheet, Platform, Alert, Dimensions, KeyboardAvoidingView, StatusBar,
@@ -1184,7 +1185,7 @@ export default function RentalScreen() {
     }finally{setLoading(false);}
   },[]);
 
-  useEffect(()=>{loadData();},[loadData]);
+  useFocusEffect(useCallback(()=>{loadData();},[loadData]));
 
   const tabs:[AppView,string,string][]=[
     ['dashboard','🏠','Dashboard'],['rentals','📋','Rentals'],['stock','📦','Stock'],['inventory','🗂','Inventory'],

@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
   StyleSheet, Platform, Alert, Dimensions, KeyboardAvoidingView, StatusBar,
@@ -52,9 +53,9 @@ interface TxForm {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const VENUES          = ['A1 Function Hall', 'A1 Grand', 'A1 Events & Decors'];
+const VENUES          = ['A1 Function Hall', 'A1 Grand', 'A1 Events & Decors','Family','Others','Credit'];
 const INCOME_TYPES    = ['Hall Booking', 'Decoration Booking', 'Advance Payment', 'Full Payment', 'Catering Income', 'Other Income'];
-const EXPENSE_TYPES   = ['Monthly Rent', 'Current Bill', 'Salaries', 'Daily Expenses', 'Investments', 'Maintenance', 'Decoration Expenses', 'Marketing', 'Fuel Charges', 'Other Expenses'];
+const EXPENSE_TYPES   = ['Monthly Rent', 'Current Bill', 'Salaries', 'Daily Expenses', 'Investments', 'Maintenance', 'Decoration Expenses', 'Marketing', 'Fuel Charges', 'Other Expenses','Medicines','Food','Travel'];
 const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Card'];
 const PERIODS: Period[]   = ['Daily', 'Weekly', 'Monthly', 'Yearly', 'All Time'];
 const STATUS_OPTIONS  = ['completed', 'pending', 'cancelled'];
@@ -553,8 +554,8 @@ export default function AccountsScreen() {
     }
   }, []);
 
-  // Load both on mount — feed drives the dashboard, txs drives the manual edit list
-  useEffect(() => { loadTxs(); loadFeed(); }, [loadTxs, loadFeed]);
+  // Refresh on every tab focus — feed drives the dashboard, txs drives the manual edit list
+  useFocusEffect(useCallback(() => { loadTxs(); loadFeed(); }, [loadTxs, loadFeed]));
 
   // ── Manual transactions list (for the editable Manual tab) ────────────────
   const filtered = useMemo(() => txs.filter(tx => {

@@ -2,7 +2,8 @@ import {
   Alert, Dimensions, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { employeesApi } from '../../lib/api';
 
@@ -599,7 +600,7 @@ export default function EmployeesScreen(){
     finally{setLoading(false);}
   },[]);
 
-  useEffect(()=>{loadEmployees();},[loadEmployees]);
+  useFocusEffect(useCallback(()=>{loadEmployees();},[loadEmployees]));
 
   function updateEmployee(updated:Employee){
     setEmployees(es=>es.map(e=>e.id===updated.id?updated:e));

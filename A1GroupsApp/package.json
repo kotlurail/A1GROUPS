@@ -7,7 +7,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:web": "expo export -p web"
+    "build:web": "expo export -p web",
+    "lint": "expo lint"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -15,6 +16,7 @@
     "@react-navigation/bottom-tabs": "^7.15.13",
     "@react-navigation/native": "^7.2.4",
     "expo": "~54.0.33",
+    "expo-av": "~16.0.8",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",
@@ -40,6 +42,8 @@
   "devDependencies": {
     "@types/react": "~19.1.0",
     "babel-preset-expo": "^54.0.10",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
   },
   "private": true

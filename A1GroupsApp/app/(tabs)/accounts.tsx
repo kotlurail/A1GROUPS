@@ -621,6 +621,10 @@ export default function AccountsScreen() {
   const [yLoading,  setYLoading]  = useState(false);
   const [yExpanded, setYExpanded] = useState<Set<number>>(new Set());
 
+  // ── Overall Net Earnings (venue revenue minus ALL business expenses) ─────────
+  const [nePeriod,  setNePeriod]  = useState<'Monthly' | 'Yearly'>('Monthly');
+  const [neRefDate, setNeRefDate] = useState(TODAY);
+
   const loadTxs = useCallback(async () => {
     try {
       const data = await transactionsApi.getAll();
@@ -677,6 +681,59 @@ export default function AccountsScreen() {
   }), [txs, period, refDate, venue, typeF, search]);
 
   const ML_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  // ── Overall Net Earnings — Venue Revenue minus OTHER business expenses ──────
+  // Uses event date (evDate) everywhere, the same basis as Yearly Financial
+  // Overview, so figures here always line up with that section — no discrepancy.
+  // Booking Expenses and Decor Expenses (internal cost) are deliberately
+  // excluded — those are already accounted for elsewhere and must not be
+  // double-deducted here. Only true "other" overheads count: employees,
+  // rent/power/maintenance (manual), and rentals.
+  const neLabel = nePeriod === 'Monthly'
+    ? `${ML_FULL[parseDate(neRefDate).getMonth()]} ${parseDate(neRefDate).getFullYear()}`
+    : `Year ${parseDate(neRefDate).getFullYear()}`;
+
+  const neSum = (source: string, tp: TxType) =>
+    feedItems
+      .filter(x => x.source === source && x.type === tp && isInPeriod(evDate(x), nePeriod, neRefDate))
+      .reduce((a, x) => a + x.amount, 0);
+
+  const neVenueRevenue   = neSum('Bookings',  'income');
+  const neBookingExpense = neSum('Bookings',  'expense');
+  const neVenueNetProfit = neVenueRevenue - neBookingExpense;   // matches Yearly Financial Overview's Net Profit exactly
+
+  const neManualIncome   = neSum('Manual',    'income');   // e.g. Catering Income, Other Income — entered manually, not tied to a booking
+  const neTotalRevenue   = neVenueNetProfit + neManualIncome;   // base = Venue NET PROFIT, not raw revenue
+
+  const neEmployeeExpense= neSum('Employees', 'expense');
+  const neManualExpense  = neSum('Manual',    'expense');
+  const neRentalExpense  = neSum('Rentals',   'expense');
+  const neOtherExpenses  = neEmployeeExpense + neManualExpense + neRentalExpense;
+
+  // Overall Net Earnings = Venue Net Profit + Other Income − Other Business Expenses
+  // (Booking expense is already netted into Venue Net Profit, not deducted again;
+  //  Decor expense is intentionally excluded entirely)
+  const neNetEarnings    = neTotalRevenue - neOtherExpenses;
+
+  // Manual expense breakdown by category (Rent, Power Bill, Maintenance, etc.)
+  const neManualCats = useMemo(() => {
+    const items = feedItems.filter(x => x.source === 'Manual' && x.type === 'expense' && isInPeriod(evDate(x), nePeriod, neRefDate));
+    const cats  = [...new Set(items.map(x => x.category))];
+    return cats
+      .map(c => ({ c, a: items.filter(x => x.category === c).reduce((s, x) => s + x.amount, 0) }))
+      .sort((a, b) => b.a - a.a);
+  }, [feedItems, nePeriod, neRefDate]);
+  const maxNeManualCat = Math.max(...neManualCats.map(c => c.a), 1);
+
+  // Manual income breakdown by category (Catering Income, Other Income, etc.)
+  const neManualIncomeCats = useMemo(() => {
+    const items = feedItems.filter(x => x.source === 'Manual' && x.type === 'income' && isInPeriod(evDate(x), nePeriod, neRefDate));
+    const cats  = [...new Set(items.map(x => x.category))];
+    return cats
+      .map(c => ({ c, a: items.filter(x => x.category === c).reduce((s, x) => s + x.amount, 0) }))
+      .sort((a, b) => b.a - a.a);
+  }, [feedItems, nePeriod, neRefDate]);
+  const maxNeManualIncomeCat = Math.max(...neManualIncomeCats.map(c => c.a), 1);
 
   // Yearly overview — per-month breakdown of fetched yBookings
   const monthData = useMemo(() =>
@@ -981,6 +1038,134 @@ export default function AccountsScreen() {
             </View>
           );
         })}
+
+        {/* ── OVERALL NET EARNINGS ──────────────────────────────────────── */}
+        <Text style={[s.sectionTitle, { color: t.text }]}>Overall Net Earnings</Text>
+        <View style={[s.chartCard, { backgroundColor: t.card, borderColor: t.border }]}>
+          <Text style={{ color: t.sub, fontSize: 11, marginBottom: 12, lineHeight: 16 }}>
+            Venue revenue minus all business expenses — employees, rent, power bills, maintenance, etc.
+            (manual or otherwise), filtered by the date each entry was made.
+          </Text>
+
+          {/* Period toggle */}
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+            {(['Monthly', 'Yearly'] as const).map(p => {
+              const active = nePeriod === p;
+              return (
+                <TouchableOpacity key={p}
+                  style={[s.chip, { backgroundColor: active ? '#6C63FF' : t.bg, borderColor: active ? '#6C63FF' : t.border, flex: 1, alignItems: 'center', marginRight: 0 }]}
+                  onPress={() => { setNePeriod(p); setNeRefDate(TODAY); }}>
+                  <Text style={{ color: active ? '#fff' : t.sub, fontWeight: active ? '700' : '500', fontSize: 13 }}>{p}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Month / Year picker */}
+          {nePeriod === 'Monthly' && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+              {monthPickerList().map(m => {
+                const active = neRefDate.startsWith(m.ym);
+                return (
+                  <TouchableOpacity key={m.ym}
+                    style={[s.chip, { backgroundColor: active ? '#3498db' : t.bg, borderColor: active ? '#3498db' : t.border, paddingHorizontal: 10, marginRight: 6 }]}
+                    onPress={() => setNeRefDate(m.ref)}>
+                    <Text style={{ color: active ? '#fff' : t.sub, fontWeight: active ? '700' : '400', fontSize: 11 }}>{m.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+          {nePeriod === 'Yearly' && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+              {yearPickerList().map(y => {
+                const active = neRefDate.startsWith(String(y.year));
+                return (
+                  <TouchableOpacity key={y.year}
+                    style={[s.chip, { backgroundColor: active ? '#f39c12' : t.bg, borderColor: active ? '#f39c12' : t.border, paddingHorizontal: 16, marginRight: 8 }]}
+                    onPress={() => setNeRefDate(y.ref)}>
+                    <Text style={{ color: active ? '#fff' : t.sub, fontWeight: active ? '700' : '400', fontSize: 13 }}>{y.year}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          {/* Breakdown */}
+          <View style={{ borderTopWidth: 1, borderTopColor: t.border, paddingTop: 12 }}>
+            <Text style={{ color: t.sub, fontSize: 11, fontWeight: '700', marginBottom: 10, letterSpacing: 0.5 }}>{neLabel.toUpperCase()}</Text>
+
+            {/* Base — Venue NET PROFIT (already nets Booking Expenses) + manually entered income */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 7 }}>
+              <Text style={{ color: t.text, fontSize: 13, fontWeight: '600' }}>Venue Net Profit (Bookings)</Text>
+              <Text style={{ color: neVenueNetProfit >= 0 ? '#27ae60' : '#e74c3c', fontSize: 14, fontWeight: '700' }}>
+                {neVenueNetProfit >= 0 ? '+' : '-'}{fmt(Math.abs(neVenueNetProfit))}
+              </Text>
+            </View>
+            {neManualIncome > 0 && (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 7 }}>
+                <Text style={{ color: t.sub, fontSize: 12 }}>Other Income (Manual entries)</Text>
+                <Text style={{ color: '#27ae60', fontSize: 13, fontWeight: '600' }}>+{fmt(neManualIncome)}</Text>
+              </View>
+            )}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, paddingTop: 4 }}>
+              <Text style={{ color: t.text, fontSize: 13, fontWeight: '700' }}>Total Net Revenue</Text>
+              <Text style={{ color: neTotalRevenue >= 0 ? '#27ae60' : '#e74c3c', fontSize: 14, fontWeight: '800' }}>
+                {neTotalRevenue >= 0 ? '+' : '-'}{fmt(Math.abs(neTotalRevenue))}
+              </Text>
+            </View>
+
+            {/* Deduct ONLY other business overheads — not booking or decor expenses */}
+            <Text style={{ color: t.sub, fontSize: 10, fontWeight: '700', marginBottom: 8, letterSpacing: 0.5 }}>LESS: OTHER BUSINESS EXPENSES</Text>
+            {([
+              ['Employee Expenses', neEmployeeExpense],
+              ['Other Expenses (Rent, Power, Maintenance, etc.)', neManualExpense],
+              ...(neRentalExpense > 0 ? [['Rental Expenses', neRentalExpense] as [string, number]] : []),
+            ] as [string, number][]).map(([label, val]) => (
+              <View key={label} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 7 }}>
+                <Text style={{ color: t.sub, fontSize: 12 }}>{label}</Text>
+                <Text style={{ color: '#e74c3c', fontSize: 13, fontWeight: '600' }}>−{fmt(val)}</Text>
+              </View>
+            ))}
+
+            <View style={{ height: 1, backgroundColor: t.border, marginVertical: 10 }} />
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+              <Text style={{ color: t.text, fontSize: 13, fontWeight: '700' }}>Total Other Expenses</Text>
+              <Text style={{ color: '#e74c3c', fontSize: 14, fontWeight: '800' }}>−{fmt(neOtherExpenses)}</Text>
+            </View>
+
+            <View style={{
+              flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+              marginTop: 10, paddingTop: 12, borderTopWidth: 2,
+              borderTopColor: neNetEarnings >= 0 ? '#6C63FF30' : '#e74c3c30',
+            }}>
+              <Text style={{ color: neNetEarnings >= 0 ? '#6C63FF' : '#e74c3c', fontSize: 15, fontWeight: '800' }}>Overall Net Earnings</Text>
+              <Text style={{ color: neNetEarnings >= 0 ? '#6C63FF' : '#e74c3c', fontSize: 19, fontWeight: '800' }}>
+                {neNetEarnings >= 0 ? '+' : '-'}{fmt(Math.abs(neNetEarnings))}
+              </Text>
+            </View>
+            <Text style={{ color: t.sub, fontSize: 9, marginTop: 8, fontStyle: 'italic' }}>
+              = Venue Net Profit (not Revenue) + Manual Income − Total Other Expenses (Decor expense excluded)
+            </Text>
+          </View>
+
+          {/* Manual income category breakdown */}
+          {neManualIncomeCats.length > 0 && (
+            <View style={{ marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: t.border }}>
+              <Text style={{ color: t.text, fontSize: 12, fontWeight: '700', marginBottom: 10 }}>Other Income — Breakdown</Text>
+              {neManualIncomeCats.map(c => <HBar key={c.c} label={c.c} value={c.a} max={maxNeManualIncomeCat} color="#27ae60" isDark={isDark} />)}
+            </View>
+          )}
+
+          {/* Manual expense category breakdown */}
+          {neManualCats.length > 0 && (
+            <View style={{ marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: t.border }}>
+              <Text style={{ color: t.text, fontSize: 12, fontWeight: '700', marginBottom: 10 }}>Other Expenses — Breakdown</Text>
+              {neManualCats.map(c => <HBar key={c.c} label={c.c} value={c.a} max={maxNeManualCat} color="#e74c3c" isDark={isDark} />)}
+            </View>
+          )}
+        </View>
 
         {/* ── ACTIVITY ───────────────────────────────────────────────────── */}
         <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginTop: 4, marginBottom: 12, gap: 8 }}>

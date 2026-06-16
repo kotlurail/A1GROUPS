@@ -16,7 +16,7 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { bookingsApi, decorsApi, uploadApi, DecorDoc } from '../../lib/api';
@@ -2706,11 +2706,14 @@ function AddBookingModal({ onClose, onSave }: { onClose: () => void; onSave: (b:
 // ── Main Screen ────────────────────────────────────────────────────────────────
 export default function BookingsScreen() {
   const today = new Date();
+  const router = useRouter();
+  const params = useLocalSearchParams<{ bookingId?: string }>();
   const [bookings, setBookings]         = useState<Booking[]>([]);
   const [loading, setLoading]           = useState(true);
   const [year, setYear]                 = useState(today.getFullYear());
   const [month, setMonth]               = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showAllTime, setShowAllTime]   = useState(false);
   const [selectedVenue, setSelectedVenue] = useState('All Venues');
   const [selectedStatus, setSelectedStatus] = useState<BookingStatus | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -2730,6 +2733,21 @@ export default function BookingsScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => { loadBookings(); }, [loadBookings]));
+
+  // Deep-link from Accounts → Yearly Overview: open a specific booking by id
+  useEffect(() => {
+    if (!params.bookingId || bookings.length === 0) return;
+    const found = bookings.find(b => b.id === params.bookingId);
+    if (found) {
+      const d = new Date(found.date);
+      setYear(d.getFullYear());
+      setMonth(d.getMonth());
+      setSelectedDate(found.date);
+      setShowAllTime(false);
+      setSelectedBooking(found);
+    }
+    router.setParams({ bookingId: undefined });
+  }, [params.bookingId, bookings]);
 
   function prevMonth() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1);
@@ -2764,11 +2782,18 @@ export default function BookingsScreen() {
     return d.getFullYear() === year && d.getMonth() === month;
   });
 
+  // Booking list scope, in priority order:
+  //   1. A specific day selected on the calendar (selectedDate)
+  //   2. "View All Time" toggled on
+  //   3. Default — scoped to the month currently shown on the calendar (by event date)
   const filtered = bookings.filter(b => {
     const venueOk  = selectedVenue === 'All Venues' || b.venue === selectedVenue;
-    const dateOk   = !selectedDate || b.date === selectedDate;
     const statusOk = !selectedStatus || b.status === selectedStatus;
-    return venueOk && dateOk && statusOk;
+    if (!venueOk || !statusOk) return false;
+    if (selectedDate) return b.date === selectedDate;
+    if (showAllTime) return true;
+    const d = new Date(b.date);
+    return d.getFullYear() === year && d.getMonth() === month;
   });
 
   const totalAmountReceived   = filtered.reduce((s, b) => s + totalAdvancePaid(b), 0);
@@ -2786,6 +2811,7 @@ export default function BookingsScreen() {
     setYear(overviewYear);
     setMonth(m);
     setSelectedDate(null);
+    setShowAllTime(false);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }
 
@@ -2863,13 +2889,21 @@ export default function BookingsScreen() {
         {/* Section header */}
         <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>
-            {selectedDate ? 'Bookings on ' + selectedDate : 'All Bookings'}
+            {selectedDate
+              ? 'Bookings on ' + selectedDate
+              : showAllTime
+                ? 'All Bookings'
+                : `Bookings in ${MONTH_NAMES[month]} ${year}`}
           </Text>
           {selectedDate ? (
             <TouchableOpacity onPress={() => setSelectedDate(null)}>
               <Text style={styles.clearBtn}>Clear ✕</Text>
             </TouchableOpacity>
-          ) : null}
+          ) : (
+            <TouchableOpacity onPress={() => setShowAllTime(v => !v)}>
+              <Text style={styles.clearBtn}>{showAllTime ? `Show ${MONTH_NAMES[month].slice(0, 3)}` : 'View All Time'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {filtered.length === 0 ? (

@@ -1,14 +1,15 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
   StyleSheet, Platform, Alert, Dimensions, KeyboardAvoidingView, StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useColorScheme } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { transactionsApi, accountsApi, FeedItem } from '../../lib/api';
+import { transactionsApi, accountsApi, bookingsApi, FeedItem, BookingDoc } from '../../lib/api';
 
 const W = Dimensions.get('window').width;
 const SHEET_MAX_H = Dimensions.get('window').height * 0.88;
@@ -27,6 +28,36 @@ function last6Months(): { ym: string; label: string }[] {
     return { ym: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: ML[d.getMonth()] };
   });
 }
+
+function last12Months(): { ym: string; label: string }[] {
+  const ML = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const now = new Date();
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
+    return { ym: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: `${ML[d.getMonth()]} ${d.getFullYear()}` };
+  });
+}
+
+function monthPickerList(): { ym: string; label: string; ref: string }[] {
+  const ML = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const now = new Date();
+  return Array.from({ length: 24 }, (_, i) => {
+    const d  = new Date(now.getFullYear(), now.getMonth() - (23 - i), 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    return { ym, label: `${ML[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`, ref: `${ym}-01` };
+  });
+}
+
+function yearPickerList(): { year: number; ref: string }[] {
+  const now = new Date();
+  return Array.from({ length: 5 }, (_, i) => {
+    const y = now.getFullYear() - (4 - i);
+    return { year: y, ref: `${y}-01-01` };
+  });
+}
+
+// Use event date for grouping/filtering; fall back to transaction date
+const evDate = (item: { eventDate?: string; date: string }) => item.eventDate || item.date;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type TxType   = 'income' | 'expense';
@@ -183,8 +214,12 @@ function SummaryCard({ title, amount, trend, trendUp, color, spark, isDark }: {
 }) {
   const t = isDark ? dark : light;
   const icons: Record<string, string> = {
-    'Total Income': '📈', 'Total Expense': '📉', 'Balance': '💰',
-    'Monthly Revenue': '📅', 'Yearly Revenue': '🗓️', 'Pending Payments': '⏳',
+    'Revenue Collected': '💵',
+    'Total Costs':       '💸',
+    'Net Earned':        '💹',
+    'This Month':        '📅',
+    'This Year':         '🗓️',
+    'To Collect':        '⏳',
   };
   return (
     <View style={[s.summaryCard, { backgroundColor: t.card, borderColor: t.border }]}>
@@ -197,40 +232,6 @@ function SummaryCard({ title, amount, trend, trendUp, color, spark, isDark }: {
         {trendUp ? '▲' : '▼'} {trend}
       </Text>
       <Sparkline data={spark} color={color} />
-    </View>
-  );
-}
-
-// ─── BarChart ─────────────────────────────────────────────────────────────────
-function BarChart({ data, labels, colors, title, isDark }: {
-  data: number[][]; labels: string[]; colors: string[]; title: string; isDark: boolean;
-}) {
-  const t = isDark ? dark : light;
-  const max = Math.max(...data.flat(), 1);
-  const H = 110;
-  return (
-    <View style={[s.chartCard, { backgroundColor: t.card, borderColor: t.border }]}>
-      <Text style={[s.chartTitle, { color: t.text }]}>{title}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: H + 20 }}>
-        {labels.map((lbl, li) => (
-          <View key={li} style={{ flex: 1, alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 2, height: H }}>
-              {data.map((ser, si) => (
-                <View key={si} style={{ flex: 1, height: Math.max(2, (ser[li] / max) * H), backgroundColor: colors[si], borderRadius: 3, opacity: 0.85 }} />
-              ))}
-            </View>
-            <Text style={{ color: t.sub, fontSize: 9, marginTop: 2 }} numberOfLines={1}>{lbl}</Text>
-          </View>
-        ))}
-      </View>
-      <View style={{ flexDirection: 'row', gap: 16, marginTop: 6 }}>
-        {colors.map((c, i) => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: c }} />
-            <Text style={{ color: t.sub, fontSize: 11 }}>{i === 0 ? 'Income' : 'Expense'}</Text>
-          </View>
-        ))}
-      </View>
     </View>
   );
 }
@@ -446,7 +447,10 @@ function FeedRow({ item, isDark }: { item: FeedItem; isDark: boolean }) {
         {!!item.reference && <Text style={{ color: t.border }}> • </Text>}
         {!!item.venue && <Text style={{ color: t.sub, fontSize: 11 }} numberOfLines={1}>{item.venue}</Text>}
         {!!item.venue && <Text style={{ color: t.border }}> • </Text>}
-        <Text style={{ color: t.sub, fontSize: 11 }}>{item.date}</Text>
+        <Text style={{ color: t.sub, fontSize: 11 }}>📅 {item.eventDate || item.date}</Text>
+        {item.eventDate && item.eventDate !== item.date && (
+          <Text style={{ color: t.sub, fontSize: 10 }}> (paid {item.date})</Text>
+        )}
         <View style={{ flex: 1 }} />
         <View style={[s.txStatus, { backgroundColor: (sc[item.status] ?? '#888') + '20' }]}>
           <Text style={{ color: sc[item.status] ?? '#888', fontSize: 10, fontWeight: '600' }}>
@@ -503,15 +507,93 @@ function SortModal({ visible, current, onSelect, onClose, isDark }: {
   );
 }
 
+// ─── KpiTile ──────────────────────────────────────────────────────────────────
+function KpiTile({ label, amount, sub, color, isDark }: {
+  label: string; amount: number; sub: string; color: string; isDark: boolean;
+}) {
+  const t = isDark ? dark : light;
+  return (
+    <View style={{ width: (W - 44) / 2, backgroundColor: t.card, borderRadius: 16, padding: 16, borderWidth: 1.5, borderColor: color + '35' }}>
+      <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: color + '18', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: color }} />
+      </View>
+      <Text style={{ color: t.sub, fontSize: 10, fontWeight: '700', letterSpacing: 0.5, marginBottom: 4 }}>{label.toUpperCase()}</Text>
+      <Text style={{ color, fontSize: 19, fontWeight: '800', letterSpacing: -0.5 }}>{fmt(amount)}</Text>
+      <Text style={{ color: t.sub, fontSize: 10, marginTop: 5 }} numberOfLines={1}>{sub}</Text>
+    </View>
+  );
+}
+
+// ─── SnapRow ──────────────────────────────────────────────────────────────────
+function SnapRow({ label, sub, inc, exp, net, highlight, isDark }: {
+  label: string; sub: string; inc: number; exp: number; net: number; highlight?: boolean; isDark: boolean;
+}) {
+  const t = isDark ? dark : light;
+  const isPos = net >= 0;
+  return (
+    <View style={{
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 11,
+      borderBottomWidth: 1, borderBottomColor: t.border,
+      backgroundColor: highlight ? (isDark ? 'rgba(108,99,255,0.1)' : 'rgba(108,99,255,0.06)') : 'transparent',
+      borderRadius: highlight ? 10 : 0,
+      marginHorizontal: highlight ? -4 : 0, paddingHorizontal: highlight ? 4 : 0,
+    }}>
+      <View style={{ flex: 2.5 }}>
+        <Text style={{ color: highlight ? '#6C63FF' : t.text, fontSize: 12, fontWeight: highlight ? '800' : '600' }}>{label}</Text>
+        <Text style={{ color: t.sub, fontSize: 10, marginTop: 1 }}>{sub}</Text>
+      </View>
+      <Text style={{ flex: 1, color: '#27ae60', fontSize: 12, fontWeight: '600', textAlign: 'right' }}>{fmt(inc)}</Text>
+      <Text style={{ flex: 1, color: '#e74c3c', fontSize: 12, fontWeight: '600', textAlign: 'right' }}>{fmt(exp)}</Text>
+      <Text style={{ flex: 1, color: isPos ? '#6C63FF' : '#e74c3c', fontSize: 12, fontWeight: '800', textAlign: 'right' }}>
+        {isPos ? '+' : '-'}{fmt(Math.abs(net))}
+      </Text>
+    </View>
+  );
+}
+
+// ─── ProgRow ──────────────────────────────────────────────────────────────────
+function ProgRow({ item, t, srcColors }: { item: FeedItem; t: typeof light; srcColors: Record<string,string> }) {
+  const srcColor = srcColors[item.source] ?? '#888';
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: t.border + '80' }}>
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, backgroundColor: srcColor + '20' }}>
+            <Text style={{ color: srcColor, fontSize: 9, fontWeight: '700' }}>{item.source.toUpperCase()}</Text>
+          </View>
+          <Text style={{ color: t.text, fontSize: 13, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+            {item.reference || item.note || item.category}
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Text style={{ color: t.sub, fontSize: 11 }}>📅 {evDate(item)}</Text>
+          {!!item.venue && <Text style={{ color: t.sub, fontSize: 11 }}>🏛 {item.venue}</Text>}
+        </View>
+        {!!item.note && item.note !== item.reference && (
+          <Text style={{ color: t.sub, fontSize: 11, marginTop: 1 }} numberOfLines={1}>{item.note}</Text>
+        )}
+      </View>
+      <Text style={{ color: '#27ae60', fontSize: 14, fontWeight: '800', marginLeft: 10 }}>{fmt(item.amount)}</Text>
+    </View>
+  );
+}
+
+// ─── Booking-level helpers for Yearly Overview ────────────────────────────────
+const bkRev   = (b: BookingDoc) => b.payments.reduce((s, p) => s + p.amount, 0);
+const bkExp   = (b: BookingDoc) => b.expenses.reduce((s, e) => s + e.amount, 0);
+const bkDecor = (b: BookingDoc) => b.decorCost ?? 0;
+const bkNet   = (b: BookingDoc) => bkRev(b) - bkExp(b);
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AccountsScreen() {
   const scheme = useColorScheme();
   const [isDark, setIsDark] = useState(scheme === 'dark');
   const t = isDark ? dark : light;
+  const router = useRouter();
 
   const [txs, setTxs]           = useState<Transaction[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [period, setPeriod]     = useState<Period>('Monthly');
+  const [period, setPeriod]     = useState<Period>('All Time');
   const [venue, setVenue]       = useState('All Venues');
   const [typeF, setTypeF]       = useState<TxFilter>('All');
   const [search, setSearch]     = useState('');
@@ -530,6 +612,14 @@ export default function AccountsScreen() {
   const [feedLoading, setFeedLoading]   = useState(false);
   const [feedSource, setFeedSource]     = useState<string>('All');
   const [feedSearch, setFeedSearch]     = useState('');
+  const [refDate,    setRefDate]        = useState(TODAY); // which month/year is selected
+
+  // ── Yearly Financial Overview ────────────────────────────────────────────────
+  const [yYear,     setYYear]     = useState(new Date().getFullYear());
+  const [yVenue,    setYVenue]    = useState('All Venues');
+  const [yBookings, setYBookings] = useState<BookingDoc[]>([]);
+  const [yLoading,  setYLoading]  = useState(false);
+  const [yExpanded, setYExpanded] = useState<Set<number>>(new Set());
 
   const loadTxs = useCallback(async () => {
     try {
@@ -557,61 +647,59 @@ export default function AccountsScreen() {
   // Refresh on every tab focus — feed drives the dashboard, txs drives the manual edit list
   useFocusEffect(useCallback(() => { loadTxs(); loadFeed(); }, [loadTxs, loadFeed]));
 
+  // Fetch yearly bookings whenever year or venue filter changes
+  useEffect(() => {
+    setYLoading(true);
+    setYExpanded(new Set());
+    const params: { venue?: string } = {};
+    if (yVenue !== 'All Venues') params.venue = yVenue;
+    bookingsApi.getAll(params)
+      .then(all => setYBookings(all.filter(b => new Date(b.date).getFullYear() === yYear)))
+      .catch(() => {})
+      .finally(() => setYLoading(false));
+  }, [yYear, yVenue]);
+
+  function toggleMonth(mi: number) {
+    setYExpanded(prev => {
+      const next = new Set(prev);
+      next.has(mi) ? next.delete(mi) : next.add(mi);
+      return next;
+    });
+  }
+
   // ── Manual transactions list (for the editable Manual tab) ────────────────
   const filtered = useMemo(() => txs.filter(tx => {
-    const pOk = isInPeriod(tx.date, period, TODAY);
+    const pOk = isInPeriod(tx.date, period, refDate);
     const vOk = venue === 'All Venues' || tx.venue === venue;
     const tOk = typeF === 'All' || (typeF === 'Income' ? tx.type === 'income' : tx.type === 'expense');
     const sOk = !search || [tx.category, tx.venue, tx.comments].some(f => f.toLowerCase().includes(search.toLowerCase()));
     return pOk && vOk && tOk && sOk;
-  }), [txs, period, venue, typeF, search]);
+  }), [txs, period, refDate, venue, typeF, search]);
 
-  // ── All-sources feed filtered for the dashboard (period + venue + typeF) ──
-  const filteredFeed = useMemo(() => feedItems.filter(item => {
-    const pOk = isInPeriod(item.date, period, TODAY);
-    const vOk = venue === 'All Venues' || item.venue === venue;
-    const tOk = typeF === 'All' || (typeF === 'Income' ? item.type === 'income' : item.type === 'expense');
-    return pOk && vOk && tOk;
-  }), [feedItems, period, venue, typeF]);
+  const ML_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  // ── Summary card numbers — driven by ALL sources via filteredFeed ─────────
-  const totalIncome  = filteredFeed.filter(x => x.type === 'income').reduce((a, x) => a + x.amount, 0);
-  const totalExpense = filteredFeed.filter(x => x.type === 'expense').reduce((a, x) => a + x.amount, 0);
-  const balance      = totalIncome - totalExpense;
-  const pendingAmt   = feedItems.filter(x => x.status === 'pending').reduce((a, x) => a + x.amount, 0);
-  const monthlyInc   = feedItems.filter(x => isInPeriod(x.date, 'Monthly', TODAY) && x.type === 'income').reduce((a, x) => a + x.amount, 0);
-  const yearlyInc    = feedItems.filter(x => isInPeriod(x.date, 'Yearly', TODAY) && x.type === 'income').reduce((a, x) => a + x.amount, 0);
+  // Yearly overview — per-month breakdown of fetched yBookings
+  const monthData = useMemo(() =>
+    Array.from({ length: 12 }, (_, mi) => {
+      const mBooks = yBookings.filter(b => new Date(b.date).getMonth() === mi);
+      return {
+        mi,
+        label:    ML_FULL[mi],
+        bookings: mBooks,
+        count:    mBooks.length,
+        revenue:  mBooks.reduce((s, b) => s + bkRev(b),   0),
+        expenses: mBooks.reduce((s, b) => s + bkExp(b),   0),
+        net:      mBooks.reduce((s, b) => s + bkNet(b),   0),
+      };
+    })
+  , [yBookings]);
 
-  const MONTHS6  = last6Months();
-  const YMS      = MONTHS6.map(m => m.ym);
-  const LBLS     = MONTHS6.map(m => m.label);
-  // Sparklines and bar chart driven by all-sources feed
-  const mAmt = (ym: string, tp: TxType) => feedItems.filter(x => x.date.startsWith(ym) && x.type === tp).reduce((a, x) => a + x.amount, 0);
-  const incSpark = YMS.map(ym => mAmt(ym, 'income'));
-  const expSpark = YMS.map(ym => mAmt(ym, 'expense'));
-  const ML_FULL  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const _now     = new Date();
-  const monthTrend = ML_FULL[_now.getMonth()] + ' ' + _now.getFullYear();
-  const yearTrend  = 'FY ' + _now.getFullYear();
-
-  // Venue stats from all sources
-  const venueStats = VENUES.map(v => ({
-    v,
-    inc: filteredFeed.filter(x => x.venue === v && x.type === 'income').reduce((a, x) => a + x.amount, 0),
-    exp: filteredFeed.filter(x => x.venue === v && x.type === 'expense').reduce((a, x) => a + x.amount, 0),
-  }));
-  const maxVenue = Math.max(...venueStats.map(v => v.inc), 1);
-
-  // Category breakdowns from all sources
-  const expCats = [...new Set(filteredFeed.filter(x => x.type === 'expense').map(x => x.category))]
-    .map(c => ({ c, a: filteredFeed.filter(x => x.category === c && x.type === 'expense').reduce((a, x) => a + x.amount, 0) }))
-    .sort((a, b) => b.a - a.a).slice(0, 6);
-  const maxExpCat = Math.max(...expCats.map(c => c.a), 1);
-
-  const incCats = [...new Set(filteredFeed.filter(x => x.type === 'income').map(x => x.category))]
-    .map(c => ({ c, a: filteredFeed.filter(x => x.category === c && x.type === 'income').reduce((a, x) => a + x.amount, 0) }))
-    .sort((a, b) => b.a - a.a).slice(0, 6);
-  const maxIncCat = Math.max(...incCats.map(c => c.a), 1);
+  const yTotal = useMemo(() => ({
+    count:    yBookings.length,
+    revenue:  yBookings.reduce((s, b) => s + bkRev(b), 0),
+    expenses: yBookings.reduce((s, b) => s + bkExp(b), 0),
+    net:      yBookings.reduce((s, b) => s + bkNet(b), 0),
+  }), [yBookings]);
 
   function openAdd() { setForm(emptyForm()); setIsEdit(false); setEditTx(null); setShowAdd(true); }
   function openEdit(tx: Transaction) { setForm({ ...tx, amount: String(tx.amount) }); setIsEdit(true); setEditTx(tx); setShowAdd(true); }
@@ -687,23 +775,18 @@ export default function AccountsScreen() {
   if (loading || feedLoading) return (
     <SafeAreaView style={[s.safe, { backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }]}>
       <Text style={{ fontSize: 36, marginBottom: 12 }}>💰</Text>
-      <Text style={{ color: t.sub, fontSize: 15 }}>Loading financial data...</Text>
+      <Text style={{ color: t.sub, fontSize: 15 }}>Loading financial data…</Text>
     </SafeAreaView>
   );
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: t.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
 
-        {/* Header */}
+        {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <View style={[s.header, { backgroundColor: t.card, borderBottomColor: t.border }]}>
-          <View>
-            <Text style={[s.headerTitle, { color: t.text }]}>Accounts</Text>
-            <Text style={{ color: t.sub, fontSize: 12 }}>
-              {feedItems.length > 0 ? `${feedItems.length} entries · All Sources` : 'Financial Management'}
-            </Text>
-          </View>
+          <Text style={[s.headerTitle, { color: t.text }]}>Accounts</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity style={[s.iconBtn, { backgroundColor: isDark ? '#ffffff15' : '#6C63FF15' }]} onPress={() => setIsDark(!isDark)}>
               <Text>{isDark ? '☀️' : '🌙'}</Text>
@@ -714,98 +797,199 @@ export default function AccountsScreen() {
           </View>
         </View>
 
-        {/* Period Chips */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginVertical: 12 }}>
-          {PERIODS.map(p => (
-            <TouchableOpacity key={p} style={[s.chip, { backgroundColor: period === p ? '#6C63FF' : t.card, borderColor: period === p ? '#6C63FF' : t.border }]}
-              onPress={() => setPeriod(p)}>
-              <Text style={{ color: period === p ? '#fff' : t.text, fontWeight: '600', fontSize: 13 }}>{p}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* ── YEARLY FINANCIAL OVERVIEW ──────────────────────────────────── */}
+        <Text style={[s.sectionTitle, { color: t.text }]}>Yearly Financial Overview</Text>
 
-        {/* Venue Filter */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-          {['All Venues', ...VENUES].map(v => (
-            <TouchableOpacity key={v} style={[s.venueChip, { backgroundColor: venue === v ? '#6C63FF20' : 'transparent', borderColor: venue === v ? '#6C63FF' : t.border }]}
-              onPress={() => setVenue(v)}>
-              <Text style={{ color: venue === v ? '#6C63FF' : t.sub, fontSize: 12 }}>{v}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Summary Cards */}
-        <View style={s.grid}>
-          <SummaryCard title="Total Income"      amount={totalIncome}  trend="This period"   trendUp color="#27ae60" spark={incSpark} isDark={isDark} />
-          <SummaryCard title="Total Expense"     amount={totalExpense} trend="This period"   trendUp={false} color="#e74c3c" spark={expSpark} isDark={isDark} />
-          <SummaryCard title="Balance"           amount={Math.abs(balance)} trend={balance >= 0 ? 'Surplus' : 'Deficit'} trendUp={balance >= 0} color="#6C63FF" spark={incSpark.map((v,i) => Math.max(0, v - expSpark[i]))} isDark={isDark} />
-          <SummaryCard title="Monthly Revenue"   amount={monthlyInc}   trend={monthTrend}    trendUp color="#3498db" spark={incSpark} isDark={isDark} />
-          <SummaryCard title="Yearly Revenue"    amount={yearlyInc}    trend={yearTrend}     trendUp color="#f39c12" spark={incSpark} isDark={isDark} />
-          <SummaryCard title="Pending Payments"  amount={pendingAmt}   trend="All time"      trendUp={false} color="#e67e22" spark={[0,0,0,0,pendingAmt/2000,pendingAmt/1000]} isDark={isDark} />
-        </View>
-
-        {/* Type Filter */}
-        <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginVertical: 10, gap: 8 }}>
-          {(['All', 'Income', 'Expense'] as TxFilter[]).map(tf => (
-            <TouchableOpacity key={tf} style={[s.typeChip, { backgroundColor: typeF === tf ? '#6C63FF' : t.card, borderColor: t.border }]} onPress={() => setTypeF(tf)}>
-              <Text style={{ color: typeF === tf ? '#fff' : t.text, fontWeight: '600', fontSize: 13 }}>
-                {tf === 'Income' ? '📈 ' : tf === 'Expense' ? '📉 ' : ''}{tf}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Analytics */}
-        <Text style={[s.sectionTitle, { color: t.text }]}>Analytics</Text>
-        <BarChart data={[incSpark, expSpark]} labels={LBLS} colors={['#27ae60', '#e74c3c']} title="Monthly Income vs Expense" isDark={isDark} />
-
+        {/* Year + Venue selectors */}
         <View style={[s.chartCard, { backgroundColor: t.card, borderColor: t.border }]}>
-          <Text style={[s.chartTitle, { color: t.text }]}>Venue-wise Revenue</Text>
-          {venueStats.map(v => <HBar key={v.v} label={v.v} value={v.inc} max={maxVenue} color="#6C63FF" isDark={isDark} />)}
+          <Text style={{ color: t.sub, fontSize: 10, fontWeight: '700', letterSpacing: 0.6, marginBottom: 8 }}>SELECT YEAR</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+            {yearPickerList().map(y => {
+              const active = yYear === y.year;
+              return (
+                <TouchableOpacity key={y.year}
+                  style={[s.chip, { backgroundColor: active ? '#6C63FF' : t.bg, borderColor: active ? '#6C63FF' : t.border, paddingHorizontal: 18, marginRight: 8 }]}
+                  onPress={() => setYYear(y.year)}>
+                  <Text style={{ color: active ? '#fff' : t.sub, fontWeight: active ? '800' : '500', fontSize: 14 }}>{y.year}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <Text style={{ color: t.sub, fontSize: 10, fontWeight: '700', letterSpacing: 0.6, marginBottom: 8 }}>VENUE FILTER</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {['All Venues', ...VENUES].map(v => {
+              const active = yVenue === v;
+              return (
+                <TouchableOpacity key={v}
+                  style={[s.venueChip, { backgroundColor: active ? '#6C63FF20' : 'transparent', borderColor: active ? '#6C63FF' : t.border, marginRight: 6 }]}
+                  onPress={() => setYVenue(v)}>
+                  <Text style={{ color: active ? '#6C63FF' : t.sub, fontSize: 11, fontWeight: active ? '700' : '400' }}>{v}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
 
-        {expCats.length > 0 && (
-          <View style={[s.chartCard, { backgroundColor: t.card, borderColor: t.border }]}>
-            <Text style={[s.chartTitle, { color: t.text }]}>Expense Breakdown</Text>
-            {expCats.map(c => <HBar key={c.c} label={c.c} value={c.a} max={maxExpCat} color="#e74c3c" isDark={isDark} />)}
-          </View>
-        )}
-
-        {incCats.length > 0 && (
-          <View style={[s.chartCard, { backgroundColor: t.card, borderColor: t.border }]}>
-            <Text style={[s.chartTitle, { color: t.text }]}>Income Breakdown</Text>
-            {incCats.map(c => <HBar key={c.c} label={c.c} value={c.a} max={maxIncCat} color="#27ae60" isDark={isDark} />)}
-          </View>
-        )}
-
-        {/* Venue Performance */}
-        <Text style={[s.sectionTitle, { color: t.text, marginTop: 8 }]}>Venue Performance</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-          {venueStats.map(v => (
-            <View key={v.v} style={[s.venueCard, { backgroundColor: t.card, borderColor: t.border }]}>
-              <Text style={{ color: t.text, fontWeight: '700', fontSize: 13, marginBottom: 6 }} numberOfLines={2}>{v.v}</Text>
-              <Text style={{ color: '#27ae60', fontSize: 12 }}>Income: {fmt(v.inc)}</Text>
-              <Text style={{ color: '#e74c3c', fontSize: 12 }}>Expense: {fmt(v.exp)}</Text>
-              <Text style={{ color: '#6C63FF', fontSize: 13, fontWeight: '700', marginTop: 4 }}>Net: {fmt(v.inc - v.exp)}</Text>
-              <View style={{ height: 4, backgroundColor: t.border, borderRadius: 2, marginTop: 8 }}>
-                <View style={{ height: 4, width: `${maxVenue > 0 ? (v.inc / maxVenue) * 100 : 0}%` as any, backgroundColor: '#6C63FF', borderRadius: 2 }} />
-              </View>
+        {/* Year summary banner */}
+        {!yLoading && (
+          <View style={[s.chartCard, { backgroundColor: '#6C63FF', borderColor: '#6C63FF', paddingVertical: 18 }]}>
+            <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700', marginBottom: 10 }}>
+              {yYear}  ·  {yVenue !== 'All Venues' ? yVenue : 'All Venues'}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 0 }}>
+              {[
+                { label: 'BOOKINGS',   val: String(yTotal.count)       },
+                { label: 'REVENUE',    val: fmt(yTotal.revenue)         },
+                { label: 'EXPENSES',   val: fmt(yTotal.expenses)        },
+                { label: 'NET PROFIT', val: fmt(yTotal.net)             },
+              ].map((item, i) => (
+                <View key={i} style={{ flex: 1, alignItems: 'center', borderLeftWidth: i > 0 ? 1 : 0, borderLeftColor: 'rgba(255,255,255,0.2)' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 9, fontWeight: '700', marginBottom: 4 }}>{item.label}</Text>
+                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>{item.val}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </ScrollView>
+          </View>
+        )}
 
-        {/* Transactions / Activity Feed toggle */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginTop: 8, marginBottom: 10, gap: 8 }}>
-          <TouchableOpacity
-            style={[s.typeChip, { backgroundColor: viewMode === 'manual' ? '#6C63FF' : t.card, borderColor: viewMode === 'manual' ? '#6C63FF' : t.border }]}
-            onPress={() => setViewMode('manual')}
-          >
+        {/* Monthly accordion rows */}
+        {yLoading ? (
+          <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+            <ActivityIndicator color="#6C63FF" size="large" />
+            <Text style={{ color: t.sub, marginTop: 12, fontSize: 13 }}>Loading {yYear} data…</Text>
+          </View>
+        ) : monthData.map(m => {
+          const isOpen = yExpanded.has(m.mi);
+          const hasData = m.count > 0;
+          return (
+            <View key={m.mi} style={[s.chartCard, { backgroundColor: t.card, borderColor: hasData ? t.border : t.border + '60', padding: 0, overflow: 'hidden', marginBottom: 8 }]}>
+
+              {/* ── Accordion header ─────────────────────────────── */}
+              <TouchableOpacity
+                style={{ padding: 14 }}
+                onPress={() => hasData && toggleMonth(m.mi)}
+                activeOpacity={hasData ? 0.7 : 1}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {/* Month colour dot */}
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: hasData ? '#6C63FF' : t.sub, marginRight: 10 }} />
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: hasData ? t.text : t.sub, fontSize: 14, fontWeight: hasData ? '700' : '500', marginBottom: 5 }}>
+                      {m.label} {yYear}
+                    </Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                      <Text style={{ color: t.sub, fontSize: 11 }}>
+                        <Text style={{ color: t.text, fontWeight: '700' }}>{m.count}</Text> bookings
+                      </Text>
+                      <Text style={{ color: '#27ae60', fontSize: 11, fontWeight: '600' }}>↑ {fmt(m.revenue)}</Text>
+                      <Text style={{ color: '#e74c3c', fontSize: 11, fontWeight: '600' }}>↓ {fmt(m.expenses)}</Text>
+                      <Text style={{ color: m.net >= 0 ? '#6C63FF' : '#e74c3c', fontSize: 11, fontWeight: '800' }}>
+                        Net {m.net >= 0 ? '+' : ''}{fmt(m.net)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {hasData ? (
+                    <Text style={{ color: '#6C63FF', fontSize: 16, marginLeft: 8 }}>{isOpen ? '▲' : '▼'}</Text>
+                  ) : (
+                    <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: t.border }}>
+                      <Text style={{ color: t.sub, fontSize: 10 }}>No bookings</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              {/* ── Expanded booking details ──────────────────────── */}
+              {isOpen && (
+                <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
+
+                  {/* Column headers */}
+                  <View style={{ flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 8, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }}>
+                    <Text style={{ flex: 2.5, color: t.sub, fontSize: 9, fontWeight: '700', letterSpacing: 0.4 }}>CUSTOMER / EVENT</Text>
+                    <Text style={{ flex: 1, color: '#27ae60', fontSize: 9, fontWeight: '700', textAlign: 'right' }}>REVENUE</Text>
+                    <Text style={{ flex: 1, color: '#e74c3c', fontSize: 9, fontWeight: '700', textAlign: 'right' }}>EXPENSES</Text>
+                    <Text style={{ flex: 1, color: '#9b59b6', fontSize: 9, fontWeight: '700', textAlign: 'right' }}>DECOR</Text>
+                    <Text style={{ flex: 1, color: '#6C63FF', fontSize: 9, fontWeight: '700', textAlign: 'right' }}>NET</Text>
+                  </View>
+
+                  {/* Booking rows */}
+                  {m.bookings
+                    .slice()
+                    .sort((a, b) => a.date.localeCompare(b.date))
+                    .map((b, bi) => {
+                      const rev   = bkRev(b);
+                      const xp    = bkExp(b);
+                      const decor = bkDecor(b);
+                      const net   = bkNet(b);
+                      return (
+                        <TouchableOpacity
+                          key={b._id}
+                          activeOpacity={0.65}
+                          onPress={() => router.push({ pathname: '/(tabs)/bookings', params: { bookingId: b._id } } as any)}
+                          style={{
+                            paddingHorizontal: 14, paddingVertical: 11,
+                            borderBottomWidth: 1, borderBottomColor: t.border,
+                            backgroundColor: bi % 2 === 1 ? (isDark ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.018)') : 'transparent',
+                          }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flex: 2.5 }}>
+                              <Text style={{ color: t.text, fontSize: 12, fontWeight: '700' }} numberOfLines={1}>
+                                {b.client || '—'}
+                              </Text>
+                              <Text style={{ color: t.sub, fontSize: 10, marginTop: 2 }}>
+                                📅 {b.date}  ·  {b.venue}
+                              </Text>
+                              {!!b.eventName && (
+                                <Text style={{ color: t.sub, fontSize: 10 }} numberOfLines={1}>{b.eventName}</Text>
+                              )}
+                            </View>
+                            <Text style={{ flex: 1, color: '#27ae60', fontSize: 12, fontWeight: '700', textAlign: 'right' }}>{fmt(rev)}</Text>
+                            <Text style={{ flex: 1, color: '#e74c3c', fontSize: 12, fontWeight: '700', textAlign: 'right' }}>{fmt(xp)}</Text>
+                            <Text style={{ flex: 1, color: decor > 0 ? '#9b59b6' : t.sub, fontSize: 12, fontWeight: '700', textAlign: 'right' }}>
+                              {decor > 0 ? fmt(decor) : '—'}
+                            </Text>
+                            <Text style={{ flex: 1, color: net >= 0 ? '#6C63FF' : '#e74c3c', fontSize: 12, fontWeight: '800', textAlign: 'right' }}>
+                              {net >= 0 ? '+' : ''}{fmt(net)}
+                            </Text>
+                            <Text style={{ color: t.sub, fontSize: 13, marginLeft: 6 }}>›</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+
+                  {/* Monthly totals footer */}
+                  <View style={{ paddingHorizontal: 14, paddingVertical: 14, backgroundColor: isDark ? 'rgba(108,99,255,0.12)' : 'rgba(108,99,255,0.07)' }}>
+                    <Text style={{ color: '#6C63FF', fontSize: 11, fontWeight: '800', marginBottom: 10 }}>
+                      Monthly Totals — {m.label}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 0 }}>
+                      {[
+                        { label: 'REVENUE',    val: fmt(m.revenue),  color: '#27ae60' },
+                        { label: 'EXPENSES',   val: fmt(m.expenses), color: '#e74c3c' },
+                        { label: 'NET PROFIT', val: `${m.net >= 0 ? '+' : ''}${fmt(m.net)}`, color: m.net >= 0 ? '#6C63FF' : '#e74c3c' },
+                      ].map((item, i) => (
+                        <View key={i} style={{ flex: 1, alignItems: i === 0 ? 'flex-start' : i === 2 ? 'flex-end' : 'center' }}>
+                          <Text style={{ color: t.sub, fontSize: 9, fontWeight: '700', marginBottom: 3 }}>{item.label}</Text>
+                          <Text style={{ color: item.color, fontSize: 15, fontWeight: '800' }}>{item.val}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              )}
+            </View>
+          );
+        })}
+
+        {/* ── ACTIVITY ───────────────────────────────────────────────────── */}
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginTop: 4, marginBottom: 12, gap: 8 }}>
+          <TouchableOpacity style={[s.typeChip, { backgroundColor: viewMode === 'manual' ? '#6C63FF' : t.card, borderColor: viewMode === 'manual' ? '#6C63FF' : t.border }]}
+            onPress={() => setViewMode('manual')}>
             <Text style={{ color: viewMode === 'manual' ? '#fff' : t.text, fontWeight: '700', fontSize: 13 }}>📋 Manual</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.typeChip, { backgroundColor: viewMode === 'feed' ? '#6C63FF' : t.card, borderColor: viewMode === 'feed' ? '#6C63FF' : t.border }]}
-            onPress={() => setViewMode('feed')}
-          >
+          <TouchableOpacity style={[s.typeChip, { backgroundColor: viewMode === 'feed' ? '#6C63FF' : t.card, borderColor: viewMode === 'feed' ? '#6C63FF' : t.border }]}
+            onPress={() => setViewMode('feed')}>
             <Text style={{ color: viewMode === 'feed' ? '#fff' : t.text, fontWeight: '700', fontSize: 13 }}>🔄 All Activity</Text>
           </TouchableOpacity>
         </View>
@@ -818,8 +1002,7 @@ export default function AccountsScreen() {
               </Text>
               <TouchableOpacity
                 style={[s.sortBtn, { backgroundColor: sortKey !== 'date-desc' ? '#6C63FF' : t.card, borderColor: sortKey !== 'date-desc' ? '#6C63FF' : t.border }]}
-                onPress={() => setShowSort(true)}
-              >
+                onPress={() => setShowSort(true)}>
                 <Text style={{ fontSize: 15, color: sortKey !== 'date-desc' ? '#fff' : t.text }}>⇅ Sort</Text>
               </TouchableOpacity>
             </View>
@@ -831,11 +1014,9 @@ export default function AccountsScreen() {
               </View>
             )}
             <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
-              <TextInput
-                style={[s.searchBox, { backgroundColor: t.card, borderColor: t.border, color: t.text }]}
+              <TextInput style={[s.searchBox, { backgroundColor: t.card, borderColor: t.border, color: t.text }]}
                 value={search} onChangeText={setSearch}
-                placeholder="Search by category, venue, notes..." placeholderTextColor={t.sub}
-              />
+                placeholder="Search transactions…" placeholderTextColor={t.sub} />
             </View>
             {sorted.length === 0 ? (
               <View style={{ alignItems: 'center', padding: 32 }}>
@@ -844,78 +1025,59 @@ export default function AccountsScreen() {
               </View>
             ) : sorted.map(tx => (
               <TxRow key={tx.id} tx={tx} isDark={isDark}
-                onView={() => setViewTx(tx)}
-                onEdit={() => openEdit(tx)}
-                onDelete={() => handleDelete(tx.id)}
-                onPrint={() => handlePrint(tx)}
-              />
+                onView={() => setViewTx(tx)} onEdit={() => openEdit(tx)}
+                onDelete={() => handleDelete(tx.id)} onPrint={() => handlePrint(tx)} />
             ))}
           </>
         ) : (
           <>
-            {/* Source filter chips */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, marginBottom: 8 }}>
               {['All', 'Bookings', 'Decors', 'Employees', 'Rentals', 'Manual'].map(src => {
                 const active = feedSource === src;
-                const col    = src === 'All' ? '#6C63FF' : SOURCE_COLORS[src] ?? '#6C63FF';
+                const col = src === 'All' ? '#6C63FF' : SOURCE_COLORS[src] ?? '#6C63FF';
                 return (
-                  <TouchableOpacity
-                    key={src}
+                  <TouchableOpacity key={src}
                     style={[s.venueChip, { backgroundColor: active ? col + '20' : 'transparent', borderColor: active ? col : t.border }]}
-                    onPress={() => setFeedSource(src)}
-                  >
+                    onPress={() => setFeedSource(src)}>
                     <Text style={{ color: active ? col : t.sub, fontSize: 12, fontWeight: active ? '700' : '400' }}>{src}</Text>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
-
-            {/* Feed search + refresh */}
             <View style={{ paddingHorizontal: 16, marginBottom: 10, flexDirection: 'row', gap: 8 }}>
-              <TextInput
-                style={[s.searchBox, { backgroundColor: t.card, borderColor: t.border, color: t.text, flex: 1 }]}
+              <TextInput style={[s.searchBox, { backgroundColor: t.card, borderColor: t.border, color: t.text, flex: 1 }]}
                 value={feedSearch} onChangeText={setFeedSearch}
-                placeholder="Search by name, category, notes..." placeholderTextColor={t.sub}
-              />
-              <TouchableOpacity
-                style={[s.sortBtn, { backgroundColor: t.card, borderColor: t.border }]}
-                onPress={() => { loadFeed(); loadTxs(); }}
-              >
+                placeholder="Search activity…" placeholderTextColor={t.sub} />
+              <TouchableOpacity style={[s.sortBtn, { backgroundColor: t.card, borderColor: t.border }]}
+                onPress={() => { loadFeed(); loadTxs(); }}>
                 <Text style={{ color: t.text, fontSize: 15 }}>{feedLoading ? '⏳' : '↻'}</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Feed count */}
             {(() => {
               const displayFeed = feedItems.filter(item => {
-                const srcOk  = feedSource === 'All' || item.source === feedSource;
-                const typeOk = typeF === 'All' || (typeF === 'Income' ? item.type === 'income' : item.type === 'expense');
-                const periodOk = isInPeriod(item.date, period, TODAY);
-                const searchOk = !feedSearch || [item.category, item.reference, item.venue, item.note].some(
-                  f => f?.toLowerCase().includes(feedSearch.toLowerCase())
-                );
-                return srcOk && typeOk && periodOk && searchOk;
+                const srcOk    = feedSource === 'All' || item.source === feedSource;
+                const periodOk = isInPeriod(evDate(item), period, refDate);
+                const searchOk = !feedSearch || [item.category, item.reference, item.venue, item.note]
+                  .some(f => f?.toLowerCase().includes(feedSearch.toLowerCase()));
+                return srcOk && periodOk && searchOk;
               });
               return (
                 <>
                   <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
                     <Text style={{ color: t.sub, fontSize: 12 }}>
-                      {displayFeed.length} entries
-                      {feedSource !== 'All' ? ` · ${feedSource}` : ' · All Sources'}
+                      {displayFeed.length} entries · {feedSource !== 'All' ? feedSource : 'All Sources'}
                     </Text>
                   </View>
                   {feedLoading ? (
                     <View style={{ alignItems: 'center', padding: 32 }}>
-                      <Text style={{ color: t.sub }}>Loading activity...</Text>
+                      <Text style={{ color: t.sub }}>Loading activity…</Text>
                     </View>
                   ) : displayFeed.length === 0 ? (
                     <View style={{ alignItems: 'center', padding: 32 }}>
                       <Text style={{ fontSize: 40 }}>📭</Text>
                       <Text style={{ color: t.sub, marginTop: 8 }}>No activity found</Text>
                     </View>
-                  ) : displayFeed.map(item => (
-                    <FeedRow key={item.id} item={item} isDark={isDark} />
-                  ))}
+                  ) : displayFeed.map(item => <FeedRow key={item.id} item={item} isDark={isDark} />)}
                 </>
               );
             })()}

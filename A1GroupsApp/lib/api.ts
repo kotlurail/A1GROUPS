@@ -131,26 +131,26 @@ export interface RentalEntry {
 
 export interface DecorItemPayload  { _id?: string; name: string; qty: number; unitCost: number; comment: string; }
 export interface DecorSectionPayload {
-  _id?:     string;
-  heading:  string;
-  images:   string[];
-  taxPct:   number;
-  discount: number;
-  items:    DecorItemPayload[];
-  comment:  string;
+  _id?:      string;
+  heading:   string;
+  images:    string[];
+  taxPct?:   number;
+  discount?: number;
+  items:     DecorItemPayload[];
+  comment:   string;
 }
 export interface EventEstimate {
-  _id:          string;
-  eventName:    string;
-  customerName: string;
-  mobile:       string;
-  eventDate:    string;
-  location:     string;
-  eventType:    string;
-  advance:      number;
-  quotedAmount: number;
-  decors:       DecorSectionPayload[];
-  createdAt:    string;
+  _id:           string;
+  eventName?:    string;
+  customerName:  string;
+  mobile?:       string;
+  eventDate?:    string;
+  location?:     string;
+  eventType:     string;
+  advance?:      number;
+  quotedAmount:  number;
+  decors:        DecorSectionPayload[];
+  createdAt:     string;
 }
 
 export interface EventStats {
@@ -388,6 +388,7 @@ export interface FeedItem {
   reference:     string;
   venue:         string;
   date:          string;
+  eventDate:     string;
   paymentMethod: string;
   status:        'completed' | 'pending' | 'cancelled';
   note:          string;

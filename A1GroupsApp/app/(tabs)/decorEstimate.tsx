@@ -27,12 +27,11 @@ type SortKey = 'newest' | 'oldest' | 'amount-desc' | 'amount-asc' | 'name-az';
 interface DecorItem { id: string; name: string; qty: string; unitCost: string; comment: string; }
 interface DecorSection {
   id: string; heading: string; images: string[];
-  items: DecorItem[]; taxPct: string; discount: string; comment: string;
+  items: DecorItem[]; comment: string;
 }
 interface EventEntry {
-  id: string; eventName: string; customerName: string; mobile: string;
-  eventDate: string; location: string; eventType: string;
-  decors: DecorSection[]; advance: string; quotedAmount: string; createdAt: string;
+  id: string; customerName: string; eventType: string;
+  decors: DecorSection[]; quotedAmount: string; createdAt: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -53,21 +52,14 @@ const SORT_OPTS: {key:SortKey;label:string;icon:string}[] = [
 function fromApi(data: any): EventEntry {
   return {
     id:           data._id,
-    eventName:    data.eventName,
     customerName: data.customerName,
-    mobile:       data.mobile,
-    eventDate:    data.eventDate,
-    location:     data.location,
     eventType:    data.eventType,
-    advance:      String(data.advance ?? ''),
     quotedAmount: String(data.quotedAmount ?? ''),
     createdAt:    (data.createdAt ?? TODAY).slice(0, 10),
     decors: (data.decors ?? []).map((d: any) => ({
       id:       d._id,
       heading:  d.heading,
       images:   d.images ?? [],
-      taxPct:   String(d.taxPct  || ''),
-      discount: String(d.discount || ''),
       comment:  d.comment ?? '',
       items: (d.items ?? []).map((i: any) => ({
         id:       i._id,
@@ -82,14 +74,10 @@ function fromApi(data: any): EventEntry {
 
 function toPayload(ev: EventEntry) {
   return {
-    eventName: ev.eventName, customerName: ev.customerName,
-    mobile: ev.mobile, eventDate: ev.eventDate,
-    location: ev.location, eventType: ev.eventType,
-    advance: pf(ev.advance),
+    customerName: ev.customerName, eventType: ev.eventType,
     quotedAmount: pf(ev.quotedAmount),
     decors: ev.decors.map(d => ({
       heading: d.heading, images: d.images,
-      taxPct: pf(d.taxPct), discount: pf(d.discount),
       comment: d.comment,
       items: d.items.filter(i => i.name).map(i => ({
         name: i.name, qty: pi(i.qty), unitCost: pf(i.unitCost), comment: i.comment,
@@ -107,24 +95,17 @@ const pi    = (s:string)=>parseInt(s)||0;
 function secSubtotal(d:DecorSection):number {
   return d.items.reduce((s,i)=>s+pi(i.qty)*pf(i.unitCost),0);
 }
-function secTax(d:DecorSection):number {
-  return Math.round(secSubtotal(d)*pf(d.taxPct)/100);
-}
 function secTotal(d:DecorSection):number {
-  return secSubtotal(d)+secTax(d)-pf(d.discount);
+  return secSubtotal(d);
 }
 function eventGrandTotal(e:EventEntry):number {
   return e.decors.reduce((s,d)=>s+secTotal(d),0);
 }
-function eventBalance(e:EventEntry):number {
-  return eventGrandTotal(e)-pf(e.advance);
-}
 
 const emptyDecorItem = ():DecorItem=>({id:uid(),name:'',qty:'1',unitCost:'',comment:''});
-const emptySection   = ():DecorSection=>({id:uid(),heading:'',images:[],items:[emptyDecorItem()],taxPct:'',discount:'',comment:''});
+const emptySection   = ():DecorSection=>({id:uid(),heading:'',images:[],items:[emptyDecorItem()],comment:''});
 const emptyEvent     = ():EventEntry=>({
-  id:uid(),eventName:'',customerName:'',mobile:'',eventDate:TODAY,
-  location:'',eventType:EVENT_TYPES[0],decors:[emptySection()],advance:'',quotedAmount:'',createdAt:TODAY,
+  id:uid(),customerName:'',eventType:EVENT_TYPES[0],decors:[emptySection()],quotedAmount:'',createdAt:TODAY,
 });
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
@@ -182,25 +163,6 @@ function Sel({label,value,options,onChange,isDark,ph,allowCustom,onAddCustom}:{
         </TouchableOpacity>
       </Modal>
     </>
-  );
-}
-
-// ─── DateField ────────────────────────────────────────────────────────────────
-function DF({label,value,onChange,isDark}:{label:string;value:string;onChange(v:string):void;isDark:boolean}) {
-  const t=isDark?DK:LT;
-  if(Platform.OS==='web') return (
-    <View style={{marginBottom:10}}>
-      {!!label&&<Text style={[s.label,{color:t.sub}]}>{label}</Text>}
-      <input type="date" value={value} onChange={e=>onChange((e.target as HTMLInputElement).value)}
-        style={{padding:10,borderRadius:8,border:`1px solid ${t.border}`,backgroundColor:t.card,color:t.text,width:'100%',fontSize:14,boxSizing:'border-box'}}/>
-    </View>
-  );
-  return (
-    <View style={{marginBottom:10}}>
-      {!!label&&<Text style={[s.label,{color:t.sub}]}>{label}</Text>}
-      <TextInput style={[s.trigger,{backgroundColor:t.card,borderColor:t.border,color:t.text}]}
-        value={value} onChangeText={onChange} placeholder="YYYY-MM-DD" placeholderTextColor={t.sub}/>
-    </View>
   );
 }
 
@@ -344,9 +306,6 @@ function DecorSectionBlock({section,onChange,onDelete,isDark,idx,allItems,onAddI
   const [expanded,setExpanded]=useState(true);
   const [uploading,setUploading]=useState(false);
   const t=isDark?DK:LT;
-  const sub=secSubtotal(section);
-  const tax=secTax(section);
-  const disc=pf(section.discount);
   const total=secTotal(section);
 
   function updateItem(itemId:string,patch:Partial<DecorItem>) {
@@ -429,24 +388,6 @@ function DecorSectionBlock({section,onChange,onDelete,isDark,idx,allItems,onAddI
           {/* Totals */}
           <View style={[s.secTotals,{backgroundColor:t.accent+'08',borderColor:t.accent+'20'}]}>
             <View style={s.totRow}>
-              <Text style={{color:t.sub,fontSize:13}}>Subtotal</Text>
-              <Text style={{color:t.text,fontSize:13,fontWeight:'600'}}>{fmt(sub)}</Text>
-            </View>
-            <View style={[s.totRow,{alignItems:'center'}]}>
-              <Text style={{color:t.sub,fontSize:13}}>Tax (%)</Text>
-              <TextInput style={[s.inlineInp,{color:t.text,borderColor:t.border,backgroundColor:t.card}]}
-                value={section.taxPct} onChangeText={v=>onChange({taxPct:v})} keyboardType="numeric"
-                placeholder="0" placeholderTextColor={t.sub}/>
-              <Text style={{color:t.text,fontSize:13,fontWeight:'600',minWidth:60,textAlign:'right'}}>{tax>0?fmt(tax):'—'}</Text>
-            </View>
-            <View style={[s.totRow,{alignItems:'center'}]}>
-              <Text style={{color:t.sub,fontSize:13}}>Discount (₹)</Text>
-              <TextInput style={[s.inlineInp,{color:t.text,borderColor:t.border,backgroundColor:t.card}]}
-                value={section.discount} onChangeText={v=>onChange({discount:v})} keyboardType="numeric"
-                placeholder="0" placeholderTextColor={t.sub}/>
-              <Text style={{color:'#27ae60',fontSize:13,fontWeight:'600',minWidth:60,textAlign:'right'}}>{disc>0?'-'+fmt(disc):'—'}</Text>
-            </View>
-            <View style={[s.totRow,{borderTopWidth:1,borderTopColor:t.accent+'30',paddingTop:8,marginTop:4}]}>
               <Text style={{color:t.accent,fontSize:14,fontWeight:'800'}}>Section Total</Text>
               <Text style={{color:t.accent,fontSize:16,fontWeight:'800'}}>{fmt(total)}</Text>
             </View>
@@ -504,7 +445,6 @@ function EventCard({event,onView,onEdit,onDelete,onPrint,isDark}:{
 }) {
   const t=isDark?DK:LT;
   const grand=eventGrandTotal(event);
-  const bal=eventBalance(event);
   const firstImg=event.decors.find(d=>d.images.length>0)?.images[0];
   const typeColor:{[k:string]:string}={
     Wedding:'#e91e63',Reception:'#9c27b0',Engagement:'#673ab7',Birthday:'#ff5722',
@@ -521,23 +461,21 @@ function EventCard({event,onView,onEdit,onDelete,onPrint,isDark}:{
       <View style={{padding:12}}>
         <View style={{flexDirection:'row',alignItems:'flex-start',marginBottom:4}}>
           <View style={{flex:1}}>
-            <Text style={{color:t.text,fontSize:15,fontWeight:'800'}}>{event.eventName||'Unnamed Event'}</Text>
-            <Text style={{color:t.sub,fontSize:12}}>{event.customerName} · {event.mobile}</Text>
+            <Text style={{color:t.text,fontSize:15,fontWeight:'800'}}>{event.customerName||'Unnamed Customer'}</Text>
+            <Text style={{color:t.sub,fontSize:12}}>{event.eventType}</Text>
           </View>
           <View style={{alignItems:'flex-end'}}>
             {pf(event.quotedAmount)>0
               ? <Text style={{color:t.accent,fontSize:16,fontWeight:'800'}}>{fmt(pf(event.quotedAmount))}</Text>
               : <Text style={{color:t.accent,fontSize:16,fontWeight:'800'}}>{fmt(grand)}</Text>
             }
-            {pf(event.quotedAmount)>0
-              ? <Text style={{color:'#27ae60',fontSize:11}}>Cost: {fmt(grand)}</Text>
-              : <Text style={{color:bal>0?'#e74c3c':'#27ae60',fontSize:11}}>Bal: {fmt(Math.abs(bal))}</Text>
-            }
+            {pf(event.quotedAmount)>0 && (
+              <Text style={{color:'#27ae60',fontSize:11}}>Cost: {fmt(grand)}</Text>
+            )}
           </View>
         </View>
         <View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:10}}>
-          <Text style={{color:t.sub,fontSize:11}}>📅 {event.eventDate}</Text>
-          <Text style={{color:t.sub,fontSize:11}}>📍 {event.location||'No location'}</Text>
+          <Text style={{color:t.sub,fontSize:11}}>🗓 Added {event.createdAt}</Text>
           <Text style={{color:t.sub,fontSize:11}}>🎨 {event.decors.length} decor section{event.decors.length!==1?'s':''}</Text>
         </View>
         <View style={{flexDirection:'row',gap:7}}>
@@ -569,7 +507,6 @@ function EventDetailView({initial,onBack,onSave,isDark,allItems,onAddItem}:{
   function delDecor(id:string){setEv(prev=>({...prev,decors:prev.decors.filter(d=>d.id!==id)}));}
 
   const grand=eventGrandTotal(ev);
-  const bal=eventBalance(ev);
 
   async function handlePrint() {
     const secHtml=ev.decors.map(d=>{
@@ -583,26 +520,22 @@ function EventDetailView({initial,onBack,onSave,isDark,allItems,onAddItem}:{
           ${rows}
         </table>
         <div style="padding:10px 14px;background:#faf8ff;text-align:right">
-          <span>Subtotal: <b>₹${secSubtotal(d).toLocaleString('en-IN')}</b></span>
-          ${pf(d.taxPct)>0?` &nbsp;|&nbsp; Tax(${d.taxPct}%): <b>₹${secTax(d).toLocaleString('en-IN')}</b>`:''}
-          ${pf(d.discount)>0?` &nbsp;|&nbsp; Discount: <b style="color:green">-₹${pf(d.discount).toLocaleString('en-IN')}</b>`:''}
           &nbsp;&nbsp; <b style="color:#7C3AED;font-size:15px">Section Total: ₹${secTotal(d).toLocaleString('en-IN')}</b>
         </div>
       </div>`;
     }).join('');
     const html=`<html><body style="font-family:sans-serif;padding:24px;max-width:700px;margin:auto">
       <div style="background:linear-gradient(135deg,#7C3AED,#9f7aea);color:white;padding:20px;border-radius:12px;margin-bottom:16px">
-        <h2 style="margin:0 0 6px">${ev.eventName||'Event Estimate'}</h2>
-        <p style="margin:2px 0">${ev.customerName} · ${ev.mobile}</p>
-        <p style="margin:2px 0">${ev.eventType} · ${ev.eventDate} · ${ev.location}</p>
+        <h2 style="margin:0 0 6px">${ev.customerName||'Event Estimate'}</h2>
+        <p style="margin:2px 0">${ev.eventType}</p>
       </div>
       ${secHtml}
       <div style="margin-top:20px;background:#f8f4ff;border:2px solid #7C3AED;border-radius:12px;padding:16px">
         <h3 style="color:#7C3AED;margin:0 0 12px">Grand Total Summary</h3>
         <table width="100%"><tr><td>Total Decoration Cost</td><td align="right"><b>₹${grand.toLocaleString('en-IN')}</b></td></tr>
-        <tr><td>Advance Paid</td><td align="right" style="color:green"><b>₹${pf(ev.advance).toLocaleString('en-IN')}</b></td></tr>
-        <tr style="border-top:1px solid #ddd"><td><b style="font-size:16px">Balance Due</b></td>
-        <td align="right"><b style="font-size:16px;color:${bal>0?'#e74c3c':'#27ae60'}">₹${Math.abs(bal).toLocaleString('en-IN')}</b></td></tr></table>
+        ${pf(ev.quotedAmount)>0?`<tr style="border-top:1px solid #ddd"><td><b style="font-size:16px">Quoted Amount</b></td>
+        <td align="right"><b style="font-size:16px;color:#7C3AED">₹${pf(ev.quotedAmount).toLocaleString('en-IN')}</b></td></tr>`:''}
+        </table>
       </div>
       <p style="color:#999;font-size:11px;margin-top:16px;text-align:center">Generated by A1 Groups App · ${TODAY}</p>
     </body></html>`;
@@ -617,8 +550,8 @@ function EventDetailView({initial,onBack,onSave,isDark,allItems,onAddItem}:{
           <Text style={{color:t.accent,fontSize:16,fontWeight:'700'}}>← Back</Text>
         </TouchableOpacity>
         <View style={{flex:1,marginHorizontal:10}}>
-          <Text style={{color:t.text,fontWeight:'800',fontSize:14}} numberOfLines={1}>{ev.eventName||'New Event'}</Text>
-          <Text style={{color:t.sub,fontSize:11}} numberOfLines={1}>{ev.customerName||'Customer'}</Text>
+          <Text style={{color:t.text,fontWeight:'800',fontSize:14}} numberOfLines={1}>{ev.customerName||'New Event'}</Text>
+          <Text style={{color:t.sub,fontSize:11}} numberOfLines={1}>{ev.eventType}</Text>
         </View>
         <View style={{flexDirection:'row',gap:8}}>
           <TouchableOpacity style={[s.topBtn,{backgroundColor:'#8e44ad20',borderColor:'#8e44ad40'}]} onPress={handlePrint}>
@@ -641,31 +574,15 @@ function EventDetailView({initial,onBack,onSave,isDark,allItems,onAddItem}:{
           <View style={[s.infoBody,{backgroundColor:t.card,borderColor:t.border}]}>
             <View style={{flexDirection:'row',gap:10}}>
               <View style={{flex:1}}>
-                <Text style={[s.label,{color:t.sub}]}>Event Name *</Text>
+                <Text style={[s.label,{color:t.sub}]}>Customer Name</Text>
                 <TextInput style={[s.inp,{backgroundColor:t.bg,borderColor:t.border,color:t.text}]}
-                  value={ev.eventName} onChangeText={v=>upEv({eventName:v})} placeholder="Event name" placeholderTextColor={t.sub}/>
+                  value={ev.customerName} onChangeText={v=>upEv({customerName:v})} placeholder="Customer name" placeholderTextColor={t.sub}/>
               </View>
               <View style={{flex:1}}>
                 <Sel label="Event Type" value={ev.eventType} options={EVENT_TYPES} onChange={v=>upEv({eventType:v})} isDark={isDark}/>
                 <View style={{height:10}}/>
               </View>
             </View>
-            <View style={{flexDirection:'row',gap:10}}>
-              <View style={{flex:1}}>
-                <Text style={[s.label,{color:t.sub}]}>Customer Name</Text>
-                <TextInput style={[s.inp,{backgroundColor:t.bg,borderColor:t.border,color:t.text}]}
-                  value={ev.customerName} onChangeText={v=>upEv({customerName:v})} placeholder="Customer name" placeholderTextColor={t.sub}/>
-              </View>
-              <View style={{flex:1}}>
-                <Text style={[s.label,{color:t.sub}]}>Mobile</Text>
-                <TextInput style={[s.inp,{backgroundColor:t.bg,borderColor:t.border,color:t.text}]}
-                  value={ev.mobile} onChangeText={v=>upEv({mobile:v})} placeholder="Mobile" placeholderTextColor={t.sub} keyboardType="phone-pad"/>
-              </View>
-            </View>
-            <DF label="Event Date" value={ev.eventDate} onChange={v=>upEv({eventDate:v})} isDark={isDark}/>
-            <Text style={[s.label,{color:t.sub}]}>Location / Venue</Text>
-            <TextInput style={[s.inp,{backgroundColor:t.bg,borderColor:t.border,color:t.text}]}
-              value={ev.location} onChangeText={v=>upEv({location:v})} placeholder="Event venue / location" placeholderTextColor={t.sub}/>
           </View>
         )}
 
@@ -714,23 +631,13 @@ function EventDetailView({initial,onBack,onSave,isDark,allItems,onAddItem}:{
             <Text style={{color:t.accent,fontSize:15,fontWeight:'800'}}>{fmt(grand)}</Text>
           </View>
           {pf(ev.quotedAmount)>0&&(
-            <View style={[s.grandRow,{borderBottomColor:t.border}]}>
-              <Text style={{color:t.text,fontSize:13,fontWeight:'700',flex:1}}>Profit / Margin</Text>
-              <Text style={{color:pf(ev.quotedAmount)>=grand?'#27ae60':'#e74c3c',fontSize:14,fontWeight:'800'}}>
+            <View style={[s.grandRow,{borderBottomWidth:0,paddingTop:10}]}>
+              <Text style={{color:t.text,fontSize:14,fontWeight:'700',flex:1}}>Profit / Margin</Text>
+              <Text style={{color:pf(ev.quotedAmount)>=grand?'#27ae60':'#e74c3c',fontSize:16,fontWeight:'800'}}>
                 {fmt(pf(ev.quotedAmount)-grand)}
               </Text>
             </View>
           )}
-          <View style={[s.grandRow,{alignItems:'center',borderBottomColor:t.border}]}>
-            <Text style={{color:t.sub,fontSize:13,flex:1}}>Advance Amount (₹)</Text>
-            <TextInput style={[s.inlineInp,{color:t.text,borderColor:t.border,backgroundColor:t.bg,width:100}]}
-              value={ev.advance} onChangeText={v=>upEv({advance:v})} keyboardType="numeric" placeholder="0" placeholderTextColor={t.sub}/>
-            <Text style={{color:'#27ae60',fontSize:13,fontWeight:'700',minWidth:80,textAlign:'right'}}>{pf(ev.advance)>0?fmt(pf(ev.advance)):'—'}</Text>
-          </View>
-          <View style={[s.grandRow,{borderBottomWidth:0,paddingTop:10}]}>
-            <Text style={{color:bal>0?'#e74c3c':'#27ae60',fontSize:16,fontWeight:'800',flex:1}}>Balance Due</Text>
-            <Text style={{color:bal>0?'#e74c3c':'#27ae60',fontSize:18,fontWeight:'800'}}>{fmt(Math.abs(pf(ev.quotedAmount)>0?pf(ev.quotedAmount)-pf(ev.advance):bal))}</Text>
-          </View>
           <TouchableOpacity style={[s.saveBtn,{backgroundColor:t.accent,marginTop:14}]} onPress={()=>onSave(ev)}>
             <Text style={s.saveTxt}>💾 Save Event Estimate</Text>
           </TouchableOpacity>
@@ -757,18 +664,17 @@ function Dashboard({events,onAdd,onView,onEdit,onDelete,onPrint,isDark}:{
   const filtered=useMemo(()=>{
     let arr=[...events];
     if(typeF!=='All') arr=arr.filter(e=>e.eventType===typeF);
-    if(search) arr=arr.filter(e=>[e.eventName,e.customerName,e.mobile,e.location].some(f=>f.toLowerCase().includes(search.toLowerCase())));
+    if(search) arr=arr.filter(e=>[e.customerName,e.eventType].some(f=>f.toLowerCase().includes(search.toLowerCase())));
     switch(sortK){
       case 'oldest':      return arr.sort((a,b)=>a.createdAt.localeCompare(b.createdAt));
       case 'amount-desc': return arr.sort((a,b)=>eventGrandTotal(b)-eventGrandTotal(a));
       case 'amount-asc':  return arr.sort((a,b)=>eventGrandTotal(a)-eventGrandTotal(b));
-      case 'name-az':     return arr.sort((a,b)=>a.eventName.localeCompare(b.eventName));
+      case 'name-az':     return arr.sort((a,b)=>a.customerName.localeCompare(b.customerName));
       default:            return arr.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
     }
   },[events,typeF,search,sortK]);
 
   const totalRev=events.reduce((s,e)=>s+eventGrandTotal(e),0);
-  const pendingBal=events.reduce((s,e)=>s+Math.max(0,eventBalance(e)),0);
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:80}}>
@@ -782,11 +688,6 @@ function Dashboard({events,onAdd,onView,onEdit,onDelete,onPrint,isDark}:{
         <View style={s.stripItem}>
           <Text style={{color:'#ffffff99',fontSize:11}}>Total Revenue</Text>
           <Text style={{color:'#fff',fontSize:16,fontWeight:'800'}}>{fmt(totalRev)}</Text>
-        </View>
-        <View style={[s.stripDiv,{backgroundColor:'#ffffff30'}]}/>
-        <View style={s.stripItem}>
-          <Text style={{color:'#ffffff99',fontSize:11}}>Balance Pending</Text>
-          <Text style={{color:'#FFE4B5',fontSize:16,fontWeight:'800'}}>{fmt(pendingBal)}</Text>
         </View>
       </View>
 
@@ -897,23 +798,20 @@ export default function GroupsScreen() {
           Section Total: <b style="color:#7C3AED">₹${secTotal(d).toLocaleString('en-IN')}</b></div></div>`;
     }).join('');
     const grand=eventGrandTotal(ev);
-    const bal=eventBalance(ev);
     const html=`<html><body style="font-family:sans-serif;padding:24px;max-width:680px;margin:auto">
       <div style="background:linear-gradient(135deg,#7C3AED,#a855f7);color:white;padding:20px;border-radius:12px">
-        <h2 style="margin:0 0 6px 0">${ev.eventName||'Event Estimate'}</h2>
-        <p style="margin:2px 0;opacity:.9">${ev.customerName} · ${ev.mobile}</p>
-        <p style="margin:2px 0;opacity:.9">${ev.eventType} · ${ev.eventDate} · ${ev.location}</p>
+        <h2 style="margin:0 0 6px 0">${ev.customerName||'Event Estimate'}</h2>
+        <p style="margin:2px 0;opacity:.9">${ev.eventType}</p>
       </div>
       ${secHtml}
       <div style="margin-top:18px;border:2px solid #7C3AED;border-radius:12px;padding:16px;background:#faf8ff">
         <h3 style="color:#7C3AED;margin:0 0 10px">Grand Total</h3>
         <table width="100%" style="font-size:14px">
           <tr><td>Total Decoration Cost</td><td align="right"><b>₹${grand.toLocaleString('en-IN')}</b></td></tr>
-          <tr><td>Advance Paid</td><td align="right" style="color:green"><b>₹${pf(ev.advance).toLocaleString('en-IN')}</b></td></tr>
-          <tr style="font-size:16px;border-top:1px solid #ddd">
-            <td><b>Balance Due</b></td>
-            <td align="right"><b style="color:${bal>0?'#e74c3c':'#27ae60'}">₹${Math.abs(bal).toLocaleString('en-IN')}</b></td>
-          </tr></table>
+          ${pf(ev.quotedAmount)>0?`<tr style="font-size:16px;border-top:1px solid #ddd">
+            <td><b>Quoted Amount</b></td>
+            <td align="right"><b style="color:#7C3AED">₹${pf(ev.quotedAmount).toLocaleString('en-IN')}</b></td>
+          </tr>`:''}</table>
       </div>
       <p style="text-align:center;color:#aaa;font-size:11px;margin-top:14px">Generated by A1 Groups App · ${TODAY}</p>
     </body></html>`;

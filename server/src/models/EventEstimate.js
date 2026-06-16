@@ -24,10 +24,10 @@ const decorSectionSchema = new Schema(
 
 const eventEstimateSchema = new Schema(
   {
-    eventName:    { type: String, required: true },
+    eventName:    { type: String, default: '' },
     customerName: { type: String, required: true },
-    mobile:       { type: String, required: true },
-    eventDate:    { type: String, required: true },
+    mobile:       { type: String, default: '' },
+    eventDate:    { type: String, default: '' },
     location:     { type: String, default: '' },
     eventType:    { type: String, required: true },
     advance:      { type: Number, default: 0 },

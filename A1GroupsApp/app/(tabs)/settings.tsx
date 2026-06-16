@@ -11,33 +11,28 @@ import { useAuth } from '../../lib/AuthContext';
 import { ResizeMode, Video } from 'expo-av';
 
 // ─── Venue data ────────────────────────────────────────────────────────────────
-// Replace address, mapsUrl, images and videoUrl with real values.
 const VENUES = [
   {
     id: 'hall',
-    name: 'A1 Function Hall',
+    name: 'A1 Function Hall,',
     emoji: '🏛️',
-    address: 'Door No. 12-3-456, MG Road, Beside City Bank,\nHyderabad, Telangana – 500 001',
-    phone: '+91 98765 43210',
-    mapsUrl: 'https://maps.google.com/?q=A1+Function+Hall+Hyderabad',
-    images: [
-      // 'https://your-cdn.com/a1hall-1.jpg',
-      // 'https://your-cdn.com/a1hall-2.jpg',
-    ] as string[],
+    address: 'Beside Head Post Office,\nDevi Chowk, Tenali.',
+    phones:   ['8187021091', '9848286548', '9494286287'],
+    whatsapp: ['8187021091', '9848286548', '9494286287'],
+    mapsUrl: 'https://maps.app.goo.gl/qBvUYRBtpzbkBmxN7',
+    images: [] as string[],
     videoUrl: 'https://1drv.ms/v/c/9b2b22907ae55508/IQBYNvXK3bNZR5WluC4bh8-8AZr0snYi-DMb_bAge2y4kk0?e=VWrnAq&download=1',
     color: '#7B61FF',
   },
   {
     id: 'grand',
-    name: 'A1 Grand',
-    emoji: '✨',
-    address: 'Plot No. 78, Jubilee Hills Rd No. 10,\nHyderabad, Telangana – 500 033',
-    phone: '+91 98765 43211',
-    mapsUrl: 'https://maps.google.com/?q=A1+Grand+Jubilee+Hills+Hyderabad',
-    images: [
-      // 'https://your-cdn.com/a1grand-1.jpg',
-      // 'https://your-cdn.com/a1grand-2.jpg',
-    ] as string[],
+    name: 'A1 Grand,',
+    emoji: '🏛️',
+    address: 'Beside Gayathri Devi Temple,\nKhajipeta, Kolakaluru, Tenali Mandal.\nNearby: Gowthami Petrol Bunk',
+    phones:   ['8187021091', '9848286548', '9494286287'],
+    whatsapp: ['8187021091', '9848286548', '9494286287'],
+    mapsUrl: 'https://maps.app.goo.gl/hrrJZyHuNtQL1b85A',
+    images: [] as string[],
     videoUrl: 'https://1drv.ms/v/c/9b2b22907ae55508/IQDN3bMEP6o2S6VcavOjBhXDAZXEy_2aLYPuJDYZFcZb-vY?e=OGCuDt&download=1',
     color: '#e91e63',
   },
@@ -91,13 +86,16 @@ function ShareSheet({
   }
 
   function shareInfo() {
+    const phoneLine = venue.phones.map(p => `📞 ${p}`).join('\n');
+    const waLine    = venue.whatsapp.map(p => `💬 ${p}`).join('\n');
     run('info', () =>
       Share.share({
         title: venue.name,
         message:
           `${venue.emoji} ${venue.name}\n\n` +
           `📍 Address:\n${venue.address}\n\n` +
-          `📞 ${venue.phone}\n\n` +
+          `${phoneLine}\n\n` +
+          `WhatsApp:\n${waLine}\n\n` +
           `🗺️ Google Maps:\n${venue.mapsUrl}`,
       }).then(() => {})
     );
@@ -218,7 +216,8 @@ function VenueCard({
   const [videoError,    setVideoError]    = useState(false);
 
   async function copyAddress() {
-    await Clipboard.setStringAsync(`${venue.name}\n${venue.address}\n${venue.phone}`);
+    const phones = venue.phones.join(', ');
+    await Clipboard.setStringAsync(`${venue.name}\n${venue.address}\n📞 ${phones}\n🗺️ ${venue.mapsUrl}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -227,22 +226,53 @@ function VenueCard({
     Linking.openURL(venue.mapsUrl).catch(() => Alert.alert('Error', 'Could not open Maps.'));
   }
 
+  function callNumber(num: string) {
+    Linking.openURL(`tel:${num}`).catch(() => Alert.alert('Error', 'Could not open dialler.'));
+  }
+
+  function openWhatsApp(num: string) {
+    Linking.openURL(`https://wa.me/91${num}`).catch(() => Alert.alert('Error', 'Could not open WhatsApp.'));
+  }
+
   return (
     <View style={[vc.card, { borderColor: venue.color + '35' }]}>
 
       {/* Header */}
       <View style={[vc.header, { backgroundColor: venue.color + '12' }]}>
         <Text style={vc.emoji}>{venue.emoji}</Text>
-        <View style={{ flex: 1 }}>
-          <Text style={[vc.name, { color: venue.color }]}>{venue.name}</Text>
-          <Text style={[vc.phone, { color: sub }]}>{venue.phone}</Text>
-        </View>
+        <Text style={[vc.name, { color: venue.color }]}>{venue.name}</Text>
       </View>
 
       {/* Address */}
       <View style={vc.addrBlock}>
         <Text style={[vc.addrLabel, { color: sub }]}>📍 ADDRESS</Text>
         <Text style={[vc.addrText, { color: text }]}>{venue.address}</Text>
+      </View>
+
+      {/* Phone numbers */}
+      <View style={[vc.addrBlock, { paddingTop: 0 }]}>
+        <Text style={[vc.addrLabel, { color: sub }]}>📞 PHONE</Text>
+        {venue.phones.map(num => (
+          <TouchableOpacity key={num} style={vc.contactRow} onPress={() => callNumber(num)}>
+            <Text style={[vc.contactNum, { color: text }]}>{num}</Text>
+            <View style={[vc.contactBadge, { backgroundColor: venue.color + '18', borderColor: venue.color + '40' }]}>
+              <Text style={[vc.contactBadgeTxt, { color: venue.color }]}>Call</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* WhatsApp numbers */}
+      <View style={[vc.addrBlock, { paddingTop: 0 }]}>
+        <Text style={[vc.addrLabel, { color: sub }]}>💬 WHATSAPP</Text>
+        {venue.whatsapp.map(num => (
+          <TouchableOpacity key={num} style={vc.contactRow} onPress={() => openWhatsApp(num)}>
+            <Text style={[vc.contactNum, { color: text }]}>{num}</Text>
+            <View style={[vc.contactBadge, { backgroundColor: '#25D36618', borderColor: '#25D36640' }]}>
+              <Text style={[vc.contactBadgeTxt, { color: '#25D366' }]}>Chat</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* Action buttons */}
@@ -446,8 +476,11 @@ const vc = StyleSheet.create({
   header:       { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
   emoji:        { fontSize: 22 },
   name:         { fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
-  phone:        { fontSize: 12, marginTop: 1 },
   addrBlock:    { paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12 },
+  contactRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  contactNum:   { fontSize: 14, fontWeight: '600', letterSpacing: 0.2 },
+  contactBadge: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
+  contactBadgeTxt: { fontSize: 11, fontWeight: '700' },
   addrLabel:    { fontSize: 10, fontWeight: '700', letterSpacing: 0.8, marginBottom: 6 },
   addrText:     { fontSize: 14, lineHeight: 21, fontWeight: '500' },
   actions:      { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingBottom: 12 },

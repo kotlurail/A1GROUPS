@@ -33,6 +33,7 @@ router.get('/feed', async (req, res, next) => {
               reference:     b.client,
               venue:         b.venue,
               date:          p.date,
+              eventDate:     b.date,
               paymentMethod: p.mode,
               status:        'completed',
               note:          p.note || b.eventName,
@@ -52,6 +53,7 @@ router.get('/feed', async (req, res, next) => {
               reference:     b.client,
               venue:         b.venue,
               date:          b.date,
+              eventDate:     b.date,
               paymentMethod: 'Cash',
               status:        'completed',
               note:          b.eventName,
@@ -69,6 +71,8 @@ router.get('/feed', async (req, res, next) => {
         const venue    = d.location || 'A1 Events & Decors';
         const status   = d.paymentStatus === 'completed' ? 'completed' : 'pending';
 
+        const decorEventDate = d.eventDate || baseDate;
+
         if (!type || type === 'income') {
           if (d.advanceAmount > 0 && inDateRange(baseDate)) {
             results.push({
@@ -80,13 +84,13 @@ router.get('/feed', async (req, res, next) => {
               reference:     d.customerName,
               venue,
               date:          baseDate,
+              eventDate:     decorEventDate,
               paymentMethod: 'Cash',
               status,
               note:          d.eventName,
             });
           }
-          const settleDate = d.eventDate || baseDate;
-          if (d.settledAmount > 0 && inDateRange(settleDate)) {
+          if (d.settledAmount > 0 && inDateRange(decorEventDate)) {
             results.push({
               id:            `decor-set-${d._id}`,
               source:        'Decors',
@@ -95,7 +99,8 @@ router.get('/feed', async (req, res, next) => {
               category:      'Decoration Payment',
               reference:     d.customerName,
               venue,
-              date:          settleDate,
+              date:          decorEventDate,
+              eventDate:     decorEventDate,
               paymentMethod: 'Cash',
               status:        'completed',
               note:          d.eventName,
@@ -115,6 +120,7 @@ router.get('/feed', async (req, res, next) => {
               reference:     d.customerName,
               venue,
               date:          baseDate,
+              eventDate:     decorEventDate,
               paymentMethod: 'Cash',
               status:        'completed',
               note:          d.eventName,
@@ -140,6 +146,7 @@ router.get('/feed', async (req, res, next) => {
               reference:     emp.name,
               venue:         '',
               date:          ce.date,
+              eventDate:     ce.date,
               paymentMethod: 'Cash',
               status:        'completed',
               note:          ce.note || emp.role,
@@ -171,6 +178,7 @@ router.get('/feed', async (req, res, next) => {
             reference:     r.customerName,
             venue:         r.venueLocation || '',
             date:          r.eventDate,
+            eventDate:     r.eventDate,
             paymentMethod: 'Cash',
             status:        allReturned ? 'completed' : 'pending',
             note:          r.eventName,
@@ -195,6 +203,7 @@ router.get('/feed', async (req, res, next) => {
           reference:     '',
           venue:         tx.venue,
           date:          tx.date,
+          eventDate:     tx.date,
           paymentMethod: tx.paymentMethod,
           status:        tx.status,
           note:          tx.comments,

@@ -10,6 +10,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { transactionsApi, accountsApi, bookingsApi, FeedItem, BookingDoc } from '../../lib/api';
+import { documentDirectory, getInfoAsync, readAsStringAsync, writeAsStringAsync } from 'expo-file-system/legacy';
 
 const W = Dimensions.get('window').width;
 const SHEET_MAX_H = Dimensions.get('window').height * 0.88;
@@ -83,6 +84,14 @@ interface TxForm {
   paymentMethod: string; date: string; comments: string; status: TxStatus;
 }
 
+// ─── Debt / Loans types ───────────────────────────────────────────────────────
+interface DebtEntry {
+  id: string; date: string; note: string; amount: number; returned: boolean;
+}
+interface DebtPerson {
+  id: string; name: string; entries: DebtEntry[];
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const VENUES          = ['A1 Function Hall', 'A1 Grand', 'A1 Events & Decors','Family','Others','Credit'];
 const INCOME_TYPES    = ['Hall Booking', 'Decoration Booking', 'Advance Payment', 'Full Payment', 'Catering Income', 'Other Income'];
@@ -128,6 +137,31 @@ const emptyForm = (): TxForm => ({
   type: 'income', venue: VENUES[0], category: INCOME_TYPES[0],
   amount: '', paymentMethod: PAYMENT_METHODS[0], date: todayStr(), comments: '', status: 'completed',
 });
+
+const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+async function loadPersons(key: string): Promise<DebtPerson[]> {
+  try {
+    if (Platform.OS === 'web') {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+      return raw ? JSON.parse(raw) : [];
+    }
+    const path = (documentDirectory ?? '') + key + '.json';
+    const info = await getInfoAsync(path);
+    if (!info.exists) return [];
+    return JSON.parse(await readAsStringAsync(path));
+  } catch { return []; }
+}
+
+async function savePersons(key: string, data: DebtPerson[]): Promise<void> {
+  try {
+    if (Platform.OS === 'web') {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(key, JSON.stringify(data));
+      return;
+    }
+    await writeAsStringAsync((documentDirectory ?? '') + key + '.json', JSON.stringify(data));
+  } catch {}
+}
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const light = { bg: '#EEF0FF', card: '#FFFFFF', text: '#1A1A2E', sub: '#6E6E8D', border: 'rgba(123,97,255,0.12)', input: '#F7F5FF' };
@@ -584,12 +618,272 @@ const bkExp   = (b: BookingDoc) => b.expenses.reduce((s, e) => s + e.amount, 0);
 const bkDecor = (b: BookingDoc) => b.decorCost ?? 0;
 const bkNet   = (b: BookingDoc) => bkRev(b) - bkExp(b);
 
+// ─── DebtTab ──────────────────────────────────────────────────────────────────
+function DebtTab({ persons, setPersons, storageKey, isDark, tabType }: {
+  persons: DebtPerson[];
+  setPersons: (p: DebtPerson[]) => void;
+  storageKey: string;
+  isDark: boolean;
+  tabType: 'debt' | 'loans';
+}) {
+  const t = isDark ? dark : light;
+  const [showAddPerson, setShowAddPerson] = useState(false);
+  const [newPersonName, setNewPersonName] = useState('');
+  const [expandedIds,   setExpandedIds]   = useState<Set<string>>(new Set());
+  const [addEntryFor,   setAddEntryFor]   = useState<string | null>(null);
+  const [entryDate,     setEntryDate]     = useState(TODAY);
+  const [entryNote,     setEntryNote]     = useState('');
+  const [entryAmt,      setEntryAmt]      = useState('');
+
+  const totalOwed    = (p: DebtPerson) => p.entries.reduce((s, e) => s + e.amount, 0);
+  const totalPending = (p: DebtPerson) => p.entries.filter(e => !e.returned).reduce((s, e) => s + e.amount, 0);
+
+  async function update(next: DebtPerson[]) {
+    setPersons(next);
+    await savePersons(storageKey, next);
+  }
+
+  async function addPerson() {
+    const name = newPersonName.trim();
+    if (!name) return;
+    await update([...persons, { id: uid(), name, entries: [] }]);
+    setNewPersonName(''); setShowAddPerson(false);
+  }
+
+  function deletePerson(pid: string) {
+    const doDelete = async () => update(persons.filter(p => p.id !== pid));
+    if (Platform.OS === 'web') { if (window.confirm('Delete this person and all their entries?')) doDelete(); }
+    else Alert.alert('Delete', 'Delete this person and all their entries?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: doDelete },
+    ]);
+  }
+
+  async function addEntry(pid: string) {
+    const amt = parseFloat(entryAmt);
+    if (!entryDate || isNaN(amt) || amt <= 0) return;
+    await update(persons.map(p => p.id !== pid ? p : {
+      ...p, entries: [...p.entries, { id: uid(), date: entryDate, note: entryNote, amount: amt, returned: false }],
+    }));
+    setAddEntryFor(null); setEntryDate(TODAY); setEntryNote(''); setEntryAmt('');
+  }
+
+  async function toggleReturned(pid: string, eid: string) {
+    await update(persons.map(p => p.id !== pid ? p : {
+      ...p, entries: p.entries.map(e => e.id === eid ? { ...e, returned: !e.returned } : e),
+    }));
+  }
+
+  async function deleteEntry(pid: string, eid: string) {
+    await update(persons.map(p => p.id !== pid ? p : {
+      ...p, entries: p.entries.filter(e => e.id !== eid),
+    }));
+  }
+
+  function toggleExpand(pid: string) {
+    setExpandedIds(prev => { const n = new Set(prev); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
+  }
+
+  const typeLabel = tabType === 'debt' ? 'Debtor' : 'Borrower';
+  const accentColor = tabType === 'debt' ? '#e74c3c' : '#27ae60';
+
+  const grandTotal   = persons.reduce((s, p) => s + totalOwed(p), 0);
+  const grandPending = persons.reduce((s, p) => s + totalPending(p), 0);
+
+  return (
+    <View style={{ paddingBottom: 16 }}>
+      {/* Summary banner */}
+      {persons.length > 0 && (
+        <View style={{ marginHorizontal: 16, marginBottom: 14, borderRadius: 14, padding: 14, borderWidth: 1,
+          backgroundColor: accentColor + '12', borderColor: accentColor + '40' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View>
+              <Text style={{ color: t.sub, fontSize: 10, fontWeight: '700', marginBottom: 3 }}>{persons.length} {typeLabel.toUpperCase()}S</Text>
+              <Text style={{ color: t.text, fontSize: 17, fontWeight: '800' }}>{fmt(grandTotal)}</Text>
+              <Text style={{ color: t.sub, fontSize: 11, marginTop: 2 }}>Total</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ color: t.sub, fontSize: 10, fontWeight: '700', marginBottom: 3 }}>PENDING</Text>
+              <Text style={{ color: accentColor, fontSize: 17, fontWeight: '800' }}>{fmt(grandPending)}</Text>
+              <Text style={{ color: '#27ae60', fontSize: 11, marginTop: 2 }}>Returned {fmt(grandTotal - grandPending)}</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Add person button */}
+      <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#6C63FF', borderRadius: 12, padding: 13 }}
+          onPress={() => setShowAddPerson(true)}>
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>+ Add {typeLabel}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Add person inline form */}
+      {showAddPerson && (
+        <View style={[s.chartCard, { backgroundColor: t.card, borderColor: '#6C63FF50', marginBottom: 12 }]}>
+          <Text style={{ color: t.sub, fontSize: 11, fontWeight: '700', marginBottom: 8 }}>{typeLabel.toUpperCase()} NAME</Text>
+          <TextInput
+            style={[s.input, { backgroundColor: t.bg, borderColor: t.border, color: t.text }]}
+            value={newPersonName} onChangeText={setNewPersonName}
+            placeholder={`Enter ${typeLabel.toLowerCase()} name…`} placeholderTextColor={t.sub}
+            autoFocus onSubmitEditing={addPerson}
+          />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity style={{ flex: 1, padding: 11, borderRadius: 10, backgroundColor: '#6C63FF', alignItems: 'center' }} onPress={addPerson}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Add</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ flex: 1, padding: 11, borderRadius: 10, backgroundColor: t.bg, borderWidth: 1, borderColor: t.border, alignItems: 'center' }}
+              onPress={() => { setShowAddPerson(false); setNewPersonName(''); }}>
+              <Text style={{ color: t.sub }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Empty state */}
+      {persons.length === 0 && !showAddPerson && (
+        <View style={{ alignItems: 'center', paddingVertical: 56 }}>
+          <Text style={{ fontSize: 52, marginBottom: 14 }}>{tabType === 'debt' ? '📋' : '💳'}</Text>
+          <Text style={{ color: t.text, fontSize: 16, fontWeight: '700', marginBottom: 6 }}>
+            No {tabType === 'debt' ? 'debtors' : 'loans'} yet
+          </Text>
+          <Text style={{ color: t.sub, fontSize: 13, textAlign: 'center', paddingHorizontal: 32 }}>
+            Tap "+ Add {typeLabel}" to start tracking
+          </Text>
+        </View>
+      )}
+
+      {/* Person cards */}
+      {persons.map(person => {
+        const isOpen    = expandedIds.has(person.id);
+        const isAdding  = addEntryFor === person.id;
+        const total     = totalOwed(person);
+        const pending   = totalPending(person);
+        const returned  = total - pending;
+
+        return (
+          <View key={person.id} style={[s.chartCard, { padding: 0, overflow: 'hidden', marginBottom: 12, backgroundColor: t.card, borderColor: t.border }]}>
+            {/* Person header row */}
+            <TouchableOpacity style={{ padding: 14 }} onPress={() => toggleExpand(person.id)}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#6C63FF20', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                  <Text style={{ fontSize: 20 }}>👤</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: t.text, fontSize: 15, fontWeight: '700' }}>{person.name}</Text>
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 3, flexWrap: 'wrap' }}>
+                    <Text style={{ color: t.sub, fontSize: 11 }}>{person.entries.length} entries</Text>
+                    <Text style={{ color: '#6C63FF', fontSize: 11, fontWeight: '700' }}>Total {fmt(total)}</Text>
+                    <Text style={{ color: pending > 0 ? '#e74c3c' : '#27ae60', fontSize: 11, fontWeight: '700' }}>Pending {fmt(pending)}</Text>
+                    {returned > 0 && <Text style={{ color: '#27ae60', fontSize: 11, fontWeight: '700' }}>Returned {fmt(returned)}</Text>}
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => deletePerson(person.id)} style={{ padding: 8 }}>
+                  <Text style={{ fontSize: 18 }}>🗑️</Text>
+                </TouchableOpacity>
+                <Text style={{ color: '#6C63FF', fontSize: 16, marginLeft: 4 }}>{isOpen ? '▲' : '▼'}</Text>
+              </View>
+            </TouchableOpacity>
+
+            {isOpen && (
+              <View style={{ borderTopWidth: 1, borderTopColor: t.border }}>
+                {/* Add entry toggle */}
+                <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
+                  <TouchableOpacity
+                    style={{ alignSelf: 'flex-start', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1,
+                      backgroundColor: isAdding ? t.bg : '#6C63FF15', borderColor: isAdding ? t.border : '#6C63FF40' }}
+                    onPress={() => { if (isAdding) setAddEntryFor(null); else { setAddEntryFor(person.id); setEntryDate(TODAY); setEntryNote(''); setEntryAmt(''); } }}>
+                    <Text style={{ color: isAdding ? t.sub : '#6C63FF', fontWeight: '700', fontSize: 13 }}>{isAdding ? '✕ Cancel' : '+ Add Entry'}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Add entry form */}
+                {isAdding && (
+                  <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+                    <View style={{ backgroundColor: t.bg, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: t.border }}>
+                      <Text style={{ color: t.sub, fontSize: 11, fontWeight: '700', marginBottom: 6 }}>DATE</Text>
+                      {Platform.OS === 'web' ? (
+                        <View style={{ marginBottom: 12 }}>
+                          <input type="date" value={entryDate} onChange={e => setEntryDate((e.target as HTMLInputElement).value)}
+                            style={{ padding: 10, borderRadius: 8, border: `1px solid ${t.border}`, backgroundColor: t.card, color: t.text, width: '100%', fontSize: 13 }} />
+                        </View>
+                      ) : (
+                        <TextInput style={[s.input, { backgroundColor: t.card, borderColor: t.border, color: t.text }]}
+                          value={entryDate} onChangeText={setEntryDate} placeholder="YYYY-MM-DD" placeholderTextColor={t.sub} />
+                      )}
+                      <Text style={{ color: t.sub, fontSize: 11, fontWeight: '700', marginBottom: 6 }}>NOTE / DESCRIPTION</Text>
+                      <TextInput style={[s.input, { backgroundColor: t.card, borderColor: t.border, color: t.text }]}
+                        value={entryNote} onChangeText={setEntryNote} placeholder="What is this for?" placeholderTextColor={t.sub} />
+                      <Text style={{ color: t.sub, fontSize: 11, fontWeight: '700', marginBottom: 6 }}>AMOUNT (₹)</Text>
+                      <TextInput style={[s.input, { backgroundColor: t.card, borderColor: t.border, color: t.text }]}
+                        value={entryAmt} onChangeText={setEntryAmt} keyboardType="numeric" placeholder="0" placeholderTextColor={t.sub} />
+                      <TouchableOpacity style={{ backgroundColor: '#6C63FF', borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 4 }} onPress={() => addEntry(person.id)}>
+                        <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Save Entry</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* Entry list */}
+                {person.entries.length === 0 && !isAdding ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: t.sub, fontSize: 13 }}>No entries yet. Tap "+ Add Entry" above.</Text>
+                  </View>
+                ) : person.entries.map((entry, ei) => (
+                  <View key={entry.id} style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    paddingHorizontal: 14, paddingVertical: 12,
+                    borderTopWidth: 1, borderTopColor: t.border,
+                    backgroundColor: ei % 2 === 1 ? (isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)') : 'transparent',
+                  }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: t.sub, fontSize: 10, marginBottom: 2 }}>📅 {entry.date}</Text>
+                      {!!entry.note && (
+                        <Text style={{ color: t.text, fontSize: 13, fontWeight: '500', marginBottom: 2 }} numberOfLines={1}>{entry.note}</Text>
+                      )}
+                      <Text style={{ color: entry.returned ? '#27ae60' : '#e74c3c', fontSize: 14, fontWeight: '700' }}>
+                        {fmt(entry.amount)}
+                      </Text>
+                    </View>
+                    {/* Returned checkbox */}
+                    <TouchableOpacity onPress={() => toggleReturned(person.id, entry.id)} style={{ alignItems: 'center', marginRight: 14, paddingHorizontal: 4 }}>
+                      <View style={{ width: 24, height: 24, borderRadius: 7, borderWidth: 2,
+                        borderColor: entry.returned ? '#27ae60' : '#e74c3c',
+                        backgroundColor: entry.returned ? '#27ae6020' : 'transparent',
+                        alignItems: 'center', justifyContent: 'center' }}>
+                        {entry.returned && <Text style={{ fontSize: 13, color: '#27ae60', fontWeight: '900' }}>✓</Text>}
+                      </View>
+                      <Text style={{ color: entry.returned ? '#27ae60' : '#e74c3c', fontSize: 9, fontWeight: '700', marginTop: 3 }}>
+                        {entry.returned ? 'RETURNED' : 'PENDING'}
+                      </Text>
+                    </TouchableOpacity>
+                    {/* Delete */}
+                    <TouchableOpacity onPress={() => deleteEntry(person.id, entry.id)} style={{ padding: 6 }}>
+                      <Text style={{ fontSize: 18 }}>🗑️</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AccountsScreen() {
   const scheme = useColorScheme();
   const [isDark, setIsDark] = useState(scheme === 'dark');
   const t = isDark ? dark : light;
   const router = useRouter();
+
+  const [activeTab, setActiveTab] = useState<'accounts' | 'debt' | 'loans'>('accounts');
+  const [debtors,   setDebtors]   = useState<DebtPerson[]>([]);
+  const [lenders,   setLenders]   = useState<DebtPerson[]>([]);
 
   const [txs, setTxs]           = useState<Transaction[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -646,6 +940,12 @@ export default function AccountsScreen() {
     } finally {
       setFeedLoading(false);
     }
+  }, []);
+
+  // Load debt/loans from local storage once on mount
+  useEffect(() => {
+    loadPersons('a1_debtors').then(setDebtors);
+    loadPersons('a1_loans').then(setLenders);
   }, []);
 
   // Refresh on every tab focus — feed drives the dashboard, txs drives the manual edit list
@@ -829,30 +1129,58 @@ export default function AccountsScreen() {
     }
   }, [filtered, sortKey]);
 
-  if (loading || feedLoading) return (
-    <SafeAreaView style={[s.safe, { backgroundColor: t.bg, alignItems: 'center', justifyContent: 'center' }]}>
-      <Text style={{ fontSize: 36, marginBottom: 12 }}>💰</Text>
-      <Text style={{ color: t.sub, fontSize: 15 }}>Loading financial data…</Text>
-    </SafeAreaView>
-  );
-
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: t.bg }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
 
-        {/* ── HEADER ─────────────────────────────────────────────────────── */}
-        <View style={[s.header, { backgroundColor: t.card, borderBottomColor: t.border }]}>
-          <Text style={[s.headerTitle, { color: t.text }]}>Accounts</Text>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TouchableOpacity style={[s.iconBtn, { backgroundColor: isDark ? '#ffffff15' : '#6C63FF15' }]} onPress={() => setIsDark(!isDark)}>
-              <Text>{isDark ? '☀️' : '🌙'}</Text>
-            </TouchableOpacity>
+      {/* ── HEADER ─────────────────────────────────────────────────────── */}
+      <View style={[s.header, { backgroundColor: t.card, borderBottomColor: t.border }]}>
+        <Text style={[s.headerTitle, { color: t.text }]}>Accounts</Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity style={[s.iconBtn, { backgroundColor: isDark ? '#ffffff15' : '#6C63FF15' }]} onPress={() => setIsDark(!isDark)}>
+            <Text>{isDark ? '☀️' : '🌙'}</Text>
+          </TouchableOpacity>
+          {activeTab === 'accounts' && (
             <TouchableOpacity style={[s.addBtn, { backgroundColor: '#6C63FF' }]} onPress={openAdd}>
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>+ Add</Text>
             </TouchableOpacity>
-          </View>
+          )}
         </View>
+      </View>
+
+      {/* ── TAB SWITCHER ───────────────────────────────────────────────── */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8, backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.border }}>
+        {(['accounts', 'debt', 'loans'] as const).map(tab => {
+          const labels: Record<string, string> = { accounts: '💰 Accounts', debt: '📋 Debt', loans: '💳 Loans Given' };
+          const active = activeTab === tab;
+          return (
+            <TouchableOpacity key={tab}
+              style={[s.typeChip, { backgroundColor: active ? '#6C63FF' : t.bg, borderColor: active ? '#6C63FF' : t.border }]}
+              onPress={() => setActiveTab(tab)}>
+              <Text style={{ color: active ? '#fff' : t.text, fontWeight: active ? '700' : '500', fontSize: 12 }}>{labels[tab]}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <View style={{ flex: 1 }}>
+      {activeTab !== 'accounts' ? (
+        <ScrollView contentContainerStyle={{ paddingVertical: 16, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+          <DebtTab
+            persons={activeTab === 'debt' ? debtors : lenders}
+            setPersons={activeTab === 'debt' ? setDebtors : setLenders}
+            storageKey={activeTab === 'debt' ? 'a1_debtors' : 'a1_loans'}
+            isDark={isDark}
+            tabType={activeTab as 'debt' | 'loans'}
+          />
+        </ScrollView>
+      ) : loading || feedLoading ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 36, marginBottom: 12 }}>💰</Text>
+          <Text style={{ color: t.sub, fontSize: 15 }}>Loading financial data…</Text>
+        </View>
+      ) : (
+      <ScrollView contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
 
         {/* ── YEARLY FINANCIAL OVERVIEW ──────────────────────────────────── */}
         <Text style={[s.sectionTitle, { color: t.text }]}>Yearly Financial Overview</Text>
@@ -1270,6 +1598,8 @@ export default function AccountsScreen() {
         )}
 
       </ScrollView>
+      )}
+      </View>
 
       <TxModal visible={showAdd} form={form} setForm={setForm} onSave={handleSave}
         onClose={() => { setShowAdd(false); setEditTx(null); }} isDark={isDark} isEdit={isEdit} />

@@ -514,7 +514,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
   function copyDecorItems() {
     const lines = entry.decorItems
       .filter(i => i.name)
-      .map(i => `• ${i.name} - ${i.quantity}`)
+      .map(i => `• ${i.name} - ${i.quantity} - ${fmtMoney(i.costPerUnit)} each = ${fmtMoney(i.quantity * i.costPerUnit)}`)
       .join('\n');
     Clipboard.setStringAsync(`Decor Items (${entry.decorItems.length}):\n${lines}\n\nTotal: ${fmtMoney(total)}`);
     setCopiedSection('decor');
@@ -718,7 +718,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {entry.decorItems.length > 0 && (
                     <TouchableOpacity style={dmod.copyBtn} onPress={copyDecorItems}>
-                      <Text style={dmod.copyBtnTxt}>{copiedSection === 'decor' ? '✓ Copied' : 'Copy'}</Text>
+                      <Text style={dmod.copyBtnTxt}>{copiedSection === 'decor' ? '✓ Coiiipied' : 'Copy'}</Text>
                     </TouchableOpacity>
                   )}
                   {isEditing && (

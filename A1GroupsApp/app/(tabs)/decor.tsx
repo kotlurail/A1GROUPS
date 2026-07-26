@@ -83,7 +83,7 @@ const PAY_LABEL: Record<PaymentStatus, string> = {
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-function fmtMoney(n: number) { return '₹' + n.toLocaleString('en-IN'); }
+function fmtMoney(n: number) { return n.toLocaleString('en-IN'); }
 function nowDate() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -514,7 +514,7 @@ function DecorDetailModal({ entry: init, isNew = false, onClose, onCreate, onUpd
   function copyDecorItems() {
     const lines = entry.decorItems
       .filter(i => i.name)
-      .map(i => `• ${i.name} - ${i.quantity} - ${fmtMoney(i.costPerUnit)} each = ${fmtMoney(i.quantity * i.costPerUnit)}`)
+      .map(i => `• ${i.name} - ${i.quantity} * ${fmtMoney(i.costPerUnit)} = ${fmtMoney(i.quantity * i.costPerUnit)}`)
       .join('\n');
     Clipboard.setStringAsync(`Decor Items (${entry.decorItems.length}):\n${lines}\n\nTotal: ${fmtMoney(total)}`);
     setCopiedSection('decor');
